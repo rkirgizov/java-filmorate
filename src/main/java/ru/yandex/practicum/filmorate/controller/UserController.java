@@ -28,7 +28,6 @@ public class UserController {
     public User create(@Valid @RequestBody User user) {
         for (User value : users.values()) {
             if (user.getEmail().equals(value.getEmail())) {
-                log.error("Попытка создания пользователя с уже существующим email");
                 throw new ValidationException("Пользователь с таким email уже существует");
             }
         }
@@ -45,7 +44,6 @@ public class UserController {
     @PutMapping
     public User update(@Valid @RequestBody User newUser) {
         if (newUser.getId() == null) {
-            log.error("Не указан id для обновления пользователя");
             throw new ValidationException("Для обновления пользователя необходимо указать id");
         }
         if (newUser.getName() == null || newUser.getName().isBlank()) {
@@ -57,7 +55,6 @@ public class UserController {
             if (newUser.getEmail() != null) {
                 for (User value : users.values()) {
                     if (newUser.getEmail().equals(value.getEmail())) {
-                        log.error("Попытка изменить email пользователя на уже существующий");
                         throw new ValidationException("Пользователь с таким email уже существует");
                     }
                 }
@@ -69,7 +66,6 @@ public class UserController {
             log.info("Пользователь \"{}\" с id = {}  - обновлен", newUser.getName(), newUser.getId());
             return oldUser;
         }
-        log.error("Попытка обновить пользователя с несуществующим id = {}", newUser.getId());
         throw new NotFoundException(String.format("Пользователь с id = %d  - не найден", newUser.getId()));
     }
 
