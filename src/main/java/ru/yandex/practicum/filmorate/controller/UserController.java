@@ -26,6 +26,32 @@ public class UserController {
 
     @PostMapping
     public User create(@Valid @RequestBody User user) {
+        User validUser = validateUser(user);
+        validUser.setId(getNextId());
+        users.put(validUser.getId(), validUser);
+        log.info("Пользователь с id = {}  - добавлен", validUser.getId());
+        return validUser;
+    }
+
+    @PutMapping
+    public User update(@Valid @RequestBody User newUser) {
+        if (newUser.getId() == null) {
+            throw new ValidationException("Для обновления пользователя необходимо указать id");
+        }
+        if (users.containsKey(newUser.getId())) {
+            User validUser = validateUser(newUser);
+            User oldUser = users.get(validUser.getId());
+            oldUser.setEmail(validUser.getEmail());
+            oldUser.setName(validUser.getName());
+            oldUser.setLogin(validUser.getLogin());
+            oldUser.setBirthday(validUser.getBirthday());
+            log.info("Пользователь \"{}\" с id = {}  - обновлен", validUser.getName(), validUser.getId());
+            return oldUser;
+        }
+        throw new NotFoundException(String.format("Пользователь с id = %d  - не найден", newUser.getId()));
+    }
+
+    private User validateUser(User user) {
         for (User value : users.values()) {
             if (user.getEmail().equals(value.getEmail())) {
                 throw new ValidationException("Пользователь с таким email уже существует");
@@ -35,41 +61,10 @@ public class UserController {
             user.setName(user.getLogin());
             log.debug("Пустое имя пользователя заменено на логин");
         }
-        user.setId(getNextId());
-        users.put(user.getId(), user);
-        log.info("Пользователь с id = {}  - добавлен", user.getId());
         return user;
     }
 
-    @PutMapping
-    public User update(@Valid @RequestBody User newUser) {
-        if (newUser.getId() == null) {
-            throw new ValidationException("Для обновления пользователя необходимо указать id");
-        }
-        if (newUser.getName() == null || newUser.getName().isBlank()) {
-            log.debug("Пустое имя пользователя заменено на логин");
-            newUser.setName(newUser.getLogin());
-        }
-        if (users.containsKey(newUser.getId())) {
-            User oldUser = users.get(newUser.getId());
-            if (newUser.getEmail() != null) {
-                for (User value : users.values()) {
-                    if (newUser.getEmail().equals(value.getEmail())) {
-                        throw new ValidationException("Пользователь с таким email уже существует");
-                    }
-                }
-            }
-            oldUser.setEmail(newUser.getEmail());
-            oldUser.setName(newUser.getName());
-            oldUser.setLogin(newUser.getLogin());
-            oldUser.setBirthday(newUser.getBirthday());
-            log.info("Пользователь \"{}\" с id = {}  - обновлен", newUser.getName(), newUser.getId());
-            return oldUser;
-        }
-        throw new NotFoundException(String.format("Пользователь с id = %d  - не найден", newUser.getId()));
-    }
-
-    private long getNextId() {
+        private long getNextId() {
         long currentMaxId = users.keySet().stream().mapToLong(id -> id).max().orElse(0);
         return ++currentMaxId;
     }

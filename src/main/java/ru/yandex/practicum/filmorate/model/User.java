@@ -9,7 +9,7 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 
 @Data
-@EqualsAndHashCode(of = { "email" })
+@EqualsAndHashCode(exclude = {"id", "name"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class User {
     Long id;
