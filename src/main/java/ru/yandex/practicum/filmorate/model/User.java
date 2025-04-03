@@ -9,18 +9,20 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 
 @Data
-@EqualsAndHashCode(exclude = {"id", "description"})
+@EqualsAndHashCode(exclude = {"id", "name"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class Film {
+public class User {
     Long id;
     @NotNull
     @NotBlank
+    @Email(message = "Некорректный email")
+    String email;
     String name;
-    @Size(max = 200, message = "Максимальная длина описания — 200 символов")
-    String description;
-    @Past
-    LocalDate releaseDate;
     @NotNull
-    @Positive
-    Integer duration;
+    @NotBlank
+    @Pattern(regexp = "^[^\\s]+$", message = "Логин не может содержать пробелы")
+    String login;
+    @NotNull
+    @Past
+    LocalDate birthday;
 }
