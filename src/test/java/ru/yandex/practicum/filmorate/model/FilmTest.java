@@ -1,89 +1,64 @@
 package ru.yandex.practicum.filmorate.model;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.time.LocalDate;
-import java.util.Set;
+import java.util.HashSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 public class FilmTest {
 
-    @Autowired
-    private Validator validator;
-
+    private FilmController filmController;
     private Film film;
 
     @BeforeEach
     public void setUp() {
+        filmController = new FilmController(new FilmService(new InMemoryFilmStorage(),new UserService(new InMemoryUserStorage())));
         film = new Film();
+        film.setId(1L);
+        film.setName("Test Film");
+        film.setDescription("Description of Test Film");
+        film.setReleaseDate(LocalDate.of(2022, 1, 1));
     }
 
     @Test
     void validationNameWorkCorrectly() {
-        film.setDescription("Film description");
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film.setDuration(120);
-        // name is null
         film.setName(null);
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за null в имени");
-        // name is blank
-        film.setName("");
-        violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за пустого имени");
+        assertEquals("Название фильма не заполнено", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за null в name");
+        film.setName(" ");
+        assertEquals("Название фильма не заполнено", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за пустого значения в name");
     }
 
     @Test
     void validationDescriptionWorkCorrectly() {
-        film.setName("Film Name");
-        // description is too long
         film.setDescription("A".repeat(201));
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film.setDuration(120);
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за слишком длинного описания");
+        assertEquals("Описание фильма не должно превышать 200 символов", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за слишком длинного описания");
     }
 
     @Test
     void validationReleaseDateWorkCorrectly() {
-        film.setName("Film Name");
-        film.setDescription("Film description");
-        film.setDuration(120);
-        // date is in the future
-        film.setReleaseDate(LocalDate.now().plusDays(1));
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за даты релиза в будущем");
+        film.setReleaseDate(LocalDate.of(1895, 12, 27));
+        assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за даты релиза раньше 1895");
     }
 
     @Test
     void validationDurationDateWorkCorrectly() {
-        film.setName("Film Name");
-        film.setDescription("Film description");
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        // duration is null
         film.setDuration(null);
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за null в длительности");
-        // duration is not positive
+        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за null в длительности");
         film.setDuration(0);
-        violations = validator.validate(film);
-        assertFalse(violations.isEmpty(),"Ожидается ошибка валидации из-за не положительной длительности");
+        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за длительности равной нулю");
+        film.setDuration(-1);
+        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за отрицательной длительности");
     }
 
-    @Test
-    void validationPassCorrectly() {
-        film.setName("Film Name");
-        film.setDescription("Film description");
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film.setDuration(120);
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertTrue(violations.isEmpty(),"Ожидается отсутствие ошибок валидации");
-    }
 }
