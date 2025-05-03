@@ -34,14 +34,14 @@ public class UserTest {
         user.setName(null);
         User createdUser = userController.create(user);
         assertEquals(user.getLogin(), createdUser.getName(), "Ожидается, что при значении name == null, оно должно быть установлено равным логину");
-        User Newuser = new User();
-        Newuser.setId(2L);
-        Newuser.setEmail("test1@example.com");
-        Newuser.setLogin("test1Login");
-        Newuser.setName(" ");
-        Newuser.setBirthday(LocalDate.of(2000, 1, 2));
-        createdUser = userController.create(Newuser);
-        assertEquals(Newuser.getLogin(), createdUser.getName(), "Ожидается, что при пустом значении name, оно должно быть установлено равным логину");
+        User NewUser = new User();
+        NewUser.setId(2L);
+        NewUser.setEmail("test1@example.com");
+        NewUser.setLogin("test1Login");
+        NewUser.setName(" ");
+        NewUser.setBirthday(LocalDate.of(2000, 1, 2));
+        createdUser = userController.create(NewUser);
+        assertEquals(NewUser.getLogin(), createdUser.getName(), "Ожидается, что при пустом значении name, оно должно быть установлено равным логину");
     }
 
     @Test
