@@ -1,6 +1,6 @@
 # Схема данных проекта java-filmorate 
 
-![java-filmorate-DB](./java-filmorate-DB.png)
+![java-filmorate-DB](./images/java-filmorate-DB.png)
 
 ## User
 id PK int \
