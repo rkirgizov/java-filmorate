@@ -2,7 +2,6 @@ package ru.yandex.practicum.filmorate.model;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import ru.yandex.practicum.filmorate.enumeration.StatusFriendship;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -18,5 +17,4 @@ public class User {
     String name;
     LocalDate birthday;
     Set<Long> friends = new HashSet<>();
-    StatusFriendship statusFriendship;
 }

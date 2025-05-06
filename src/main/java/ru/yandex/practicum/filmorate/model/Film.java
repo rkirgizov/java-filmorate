@@ -12,8 +12,6 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Film {
     Long id;
-    String genre;
-    String rating;
     String name;
     String description;
     LocalDate releaseDate;
