@@ -12,9 +12,11 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Film {
     Long id;
+    String genre;
+    String rating;
     String name;
     String description;
     LocalDate releaseDate;
     Integer duration;
-    private Set<Long> likes = new HashSet<>();
+    Set<Long> likes = new HashSet<>();
 }
