@@ -12,7 +12,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Film {
     Long id;
-    String genre;
+    Set<Long> genres = new HashSet<>();
     String rating;
     String name;
     String description;
