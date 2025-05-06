@@ -13,7 +13,7 @@ import java.util.Set;
 public class Film {
     Long id;
     Set<Long> genres = new HashSet<>();
-    String rating;
+    Integer rating;
     String name;
     String description;
     LocalDate releaseDate;
