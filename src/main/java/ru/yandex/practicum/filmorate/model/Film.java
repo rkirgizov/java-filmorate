@@ -12,6 +12,8 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Film {
     Long id;
+    Set<Long> genres = new HashSet<>();
+    Integer rating;
     String name;
     String description;
     LocalDate releaseDate;

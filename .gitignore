@@ -23,6 +23,9 @@ target/
 .springBeans
 .sts4-cache
 
+### GIGA IDE ###
+.gigaide
+
 ### IntelliJ IDEA ###
 .idea
 *.iws
