@@ -17,7 +17,7 @@ import java.util.Optional;
 @Slf4j
 @Component("UserStorageDbImpl")
 public class UserStorageDbImpl extends BaseStorage<User> implements UserStorage {
-    private static final String FIND_BY_ID_QUERY = " SELECT * FROM _user WHERE id = ?";
+    private static final String FIND_BY_ID_QUERY = "SELECT * FROM _user WHERE id = ?";
     private static final String FIND_ALL_QUERY = "SELECT * FROM _user";
     private static final String INSERT_QUERY = "INSERT INTO _user (login,email,name,birthday_dt) VALUES (?,?,?,?)";
     private static final String UPDATE_QUERY = "UPDATE _user SET login = ?, email = ?, name = ?, birthday_dt = ? WHERE id = ?";

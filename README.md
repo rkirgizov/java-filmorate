@@ -5,55 +5,40 @@
 [* ссылка на файл в проекте](./images/java-filmorate-DB.png)
 
 ## Примеры SQL-запросов
-### Выгрузка фильмов по определенному жанру
+### Пользователи
 ```
-SELECT f.*
-FROM film f
-JOIN film_genre fg ON f.id = fg.film_id
-JOIN genre g ON g.id = fg.genre_id
-WHERE g.name = '&genre';
+Поиск по id         = "SELECT * FROM _user WHERE id = ?";
+Поиск всех          = "SELECT * FROM _user";
+Добавление          = "INSERT INTO _user (login,email,name,birthday_dt) VALUES (?,?,?,?)";
+Обновление          = "UPDATE _user SET login = ?, email = ?, name = ?, birthday_dt = ? WHERE id = ?";
+Удаление            = "DELETE FROM _user WHERE id = ?";
+Добавление друга    = "INSERT INTO _user_friend (user_id, friend_id, status_id) SELECT ?, ?, ?";
+Удаление друга      = "DELETE FROM _user_friend WHERE (user_id = ? AND friend_id = ?)";
+Поиск друзей        = "SELECT u.*, fs.name AS friendship_status FROM _user u " +
+                        "JOIN _user_friend uf ON u.id = uf.friend_id " +
+                        "JOIN _friend_status fs ON uf.status_id = fs.id " +
+                        "WHERE uf.user_id  = ?";
 ```
-### Выгрузка фильмов по определенному рейтингу
+### Фильмы
 ```
-SELECT f.*
-FROM film f
-JOIN rating r ON f.id = r.rating_id
-WHERE r.name = '&rating';
+Поиск по id         = " SELECT * FROM _film WHERE id = ?";
+Поиск всех          = "SELECT * FROM _film";
+Добавление          = "INSERT INTO _film (name,description,duration,release_dt,mpa_id) VALUES (?,?,?,?,?)";
+Добавление          = "INSERT INTO _film_genre (film_id, genre_id) VALUES (?,?)";
+Удаление            = "DELETE FROM _film_genre WHERE film_id = ?";
+Обновление          = "UPDATE _film SET name = ?, description = ?, duration = ?, release_dt = ?, mpa_id = ? WHERE id = ?";
+Добавление лайка    = "INSERT INTO _like (user_id, film_id) VALUES (?,?)";
+Удаление лайка      = "DELETE FROM _like WHERE user_id = ? AND film_id = ?";
+Популярные фильмы   = "SELECT f.* FROM _film f
+                        LEFT JOIN _like l ON f.id = l.film_id
+                        GROUP BY f.id
+                        HAVING COUNT(l.user_id) > 0
+                        ORDER BY COUNT(l.user_id) DESC
+                        LIMIT ?";
 ```
-### Подсчёт лайков у фильма по его названию
+## Используемые таблицы
 ```
-SELECT COUNT(*) AS like_count
-FROM film_like fl
-JOIN film f ON fl.id = f.film_id
-WHERE f.name = '&name';
-```
-### Выгрузка фильмов, которые понравились определенному пользователю
-```
-SELECT f.*
-FROM film f
-JOIN film_like fl ON f.id = fl.film_id
-JOIN user u ON fl.user_id = u.id
-WHERE u.login = '&login';
-```
-### Выгрузка друзей пользователя
-```
-SELECT u.id, u.name
-FROM user u
-JOIN user_friend uf ON u.id = uf.friend_id
-WHERE uf.user_id = &userId;
-```
-### Список общих друзей &user1 и &user2
-```
-SELECT u.id, u.name
-FROM user u
-JOIN user_friend uf ON u.id = uf.friend_id
-WHERE uf.user_id IN (&user1Id, &user2Id)
-GROUP BY u.id, u.name
-HAVING COUNT(uf.user_id) = 2;
-```
-## Описание таблиц
-```
-user
+_user
 ----
 id PK int 
 login varchar(50) UNIQUE 
@@ -61,45 +46,45 @@ email varchar(50) UNIQUE
 name varchar(50) 
 birthday_dt date
 
-user_friend
+_user_friend
 ----
 id PK int 
-user_id int FK >- user.id 
-friend_id int FK >- user.id 
-status_id int FK >- friend_status.id
+user_id int FK >- _user.id 
+friend_id int FK >- _user.id 
+status_id int FK >- _friend_status.id
 
-friend_status
+_friend_status
 ----
 id PK int 
 name varchar(20)
 
-film
+_film
 ----
 id PK int 
 name varchar(50) 
 description varchar(255) 
 duration int
 release_dt date
-mpa_rating_id int FK >- mpa_rating.id
+mpa_id int FK >- _mpa.id
 
-like
+_like
 ----
 id PK int 
-user_id int FK >- user.id 
-film_id int FK >- film.id
+user_id int FK >- _user.id 
+film_id int FK >- _film.id
 
-mpa_rating
+_mpa
 ----
 id PK int 
 name varchar(20)
 
-film_genre
+_film_genre
 ----
 id PK int 
-film_id int FK >- film.id 
-genre_id int FK >- genre.id
+film_id int FK >- _film.id 
+genre_id int FK >- _genre.id
 
-genre
+_genre
 ----
 id PK int 
 name varchar(20)
