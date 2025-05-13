@@ -3,140 +3,192 @@ package ru.yandex.practicum.filmorate.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.jdbc.JdbcTestUtils;
+import ru.yandex.practicum.filmorate.dto.*;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.mapper.*;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.MpaStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
+import ru.yandex.practicum.filmorate.storage.impl.FilmStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.GenreStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.MpaStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.UserStorageDbImpl;
 
 import java.time.LocalDate;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@SpringBootTest
+@JdbcTest
+@AutoConfigureTestDatabase
+@Import({FilmStorageDbImpl.class,
+        FilmRowMapper.class,
+        MpaStorageDbImpl.class,
+        MpaRowMapper.class,
+        GenreStorageDbImpl.class,
+        GenreRowMapper.class,
+        UserStorageDbImpl.class,
+        UserRowMapper.class})
 public class FilmControllerTest {
 
     @Autowired
-    private FilmController filmController;
-    private UserController userController;
+    private FilmStorage filmStorage;
 
-    private Film film;
+    @Autowired
+    private MpaStorage mpaStorage;
+
+    @Autowired
+    private GenreStorage genreStorage;
+
+    @Autowired
+    private UserStorage userStorage;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private FilmController filmController;
+    private FilmRequest filmRequest;
 
     @BeforeEach
     public void setUp() {
-        UserService userService = new UserService(new InMemoryUserStorage());
-        userController = new UserController(userService);
-        filmController = new FilmController(new FilmService(new InMemoryFilmStorage(),userService));
-        film = new Film();
-        film.setId(1L);
-        film.setName("Test Film");
-        film.setDescription("Description of Test Film");
-        film.setReleaseDate(LocalDate.of(2022, 1, 1));
-        film.setDuration(90);
+        JdbcTestUtils.deleteFromTables(jdbcTemplate, "_film", "_like", "_user");
+        jdbcTemplate.execute("ALTER TABLE _film ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE _like ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE _user ALTER COLUMN id RESTART WITH 1");
+
+        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, userStorage));
+        filmRequest = new FilmRequest("Test Film", "Description of Test Film",
+                120, LocalDate.of(2022, 1, 1), null, null);
+        Mpa mpa = new Mpa();
+        mpa.setId(1);
+        filmRequest.setMpa(mpa);
+        Genre genre = new Genre();
+        genre.setId(1);
+        filmRequest.setGenres(List.of(genre));
     }
 
     @Test
     public void testSearchFilmsWorksCorrectly() {
-        filmController.create(film);
+        filmController.createFilm(filmRequest);
         assertEquals(1, filmController.findAll().size(), "Ожидается один найденный фильм");
-        Film newFilm  = new Film();
-        newFilm.setId(2L);
-        newFilm.setName("Test 2 Film");
-        newFilm.setDescription("Description of Test 2 Film");
-        newFilm.setReleaseDate(LocalDate.of(2021, 1, 1));
-        newFilm.setDuration(120);
-        filmController.create(newFilm);
+
+        FilmRequest filmRequest2 = new FilmRequest("Test Film 2", "Description of Test Film 2",
+                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()));
+        Mpa mpa = new Mpa();
+        mpa.setId(2);
+        filmRequest2.setMpa(mpa);
+        Genre genre = new Genre();
+        genre.setId(2);
+        filmRequest2.setGenres(List.of(genre));
+        filmController.createFilm(filmRequest2);
         assertEquals(2, filmController.findAll().size(), "Ожидается два найденных фильма");
     }
 
     @Test
-    void testCreateFilm() {
-        Film createdFilm = filmController.create(film);
-        assertEquals(film, createdFilm, "Ожидается корректное создание фильма");
+    void testCreateFilmWorksCorrectly() {
+        FilmDto createdFilmDto = filmController.createFilm(filmRequest);
+        FilmDto requestFilmDto =  FilmMapper.mapToFilmDto(FilmMapper.mapToFilm(filmRequest), mpaStorage, genreStorage);
+        requestFilmDto.setId(createdFilmDto.getId());
+        assertEquals(requestFilmDto, createdFilmDto, "Ожидается создание фильма с корректными данными");
     }
 
     @Test
-    public void testUpdateExistingFilm() {
-        filmController.create(film);
-        Film updatedFilm  = new Film();
-        updatedFilm.setId(1L);
-        updatedFilm.setName("Updated Film");
-        updatedFilm.setDescription("Updated Description");
-        updatedFilm.setReleaseDate(LocalDate.of(2022, 1, 1));
-        updatedFilm.setDuration(120);
-        Film resultFilm = filmController.update(updatedFilm);
-        assertEquals("Updated Film", resultFilm.getName(), "Ожидается, что название фильма обновлено");
-        assertEquals("Updated Description", resultFilm.getDescription(), "Ожидается, что описание фильма обновлено");
+    public void testUpdateExistingFilmWorksCorrectly() {
+        filmController.createFilm(filmRequest);
+        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("Test Film Updated", "Description of Test Film Updated",
+                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
+        Mpa mpaUpdate = new Mpa();
+        mpaUpdate.setId(2);
+        mpaUpdate.setName("PG");
+        filmRequestUpdate.setMpa(mpaUpdate);
+        Genre genreUpdate = new Genre();
+        genreUpdate.setId(2);
+        genreUpdate.setName("Драма");
+        filmRequestUpdate.setGenres(List.of(genreUpdate));
+        filmController.updateFilm(filmRequestUpdate);
+        assertThat(filmController.findFilmById(1))
+                .as("Ожидается, что фильм с id 1 корректно обновлен")
+                .hasFieldOrPropertyWithValue("id", 1)
+                .hasFieldOrPropertyWithValue("name", "Test Film Updated")
+                .hasFieldOrPropertyWithValue("description", "Description of Test Film Updated")
+                .hasFieldOrPropertyWithValue("duration", 90)
+                .hasFieldOrPropertyWithValue("releaseDate", LocalDate.of(2020, 1, 1))
+                .hasFieldOrPropertyWithValue("mpa", mpaUpdate)
+                .hasFieldOrPropertyWithValue("genres", List.of(genreUpdate));
     }
 
     @Test
-    public void testUpdateNonExistingFilm() {
-        assertThrows(NotFoundException.class, () -> filmController.update(film),
+    public void testUpdateNonExistingFilmWorksCorrectly() {
+        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("NonExistingFilm", "NonExistingFilmDescription",
+                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
+        assertThrows(NotFoundException.class, () -> filmController.updateFilm(filmRequestUpdate),
                 "Ожидается исключение NotFoundException при попытке обновления несуществующего фильма");
     }
 
     @Test
-    public void testAddLikeToFilm() {
-        filmController.create(film);
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
-        user.setLogin("testLogin");
-        user.setName("Test User");
-        user.setBirthday(LocalDate.of(2000, 1, 1));
-        userController.create(user);
-        // Тестирование добавления лайка фильму
-        filmController.addLikeToFilm(1L, 1L);
-        assertEquals(1, film.getLikes().size(), "Ожидается, что у фильма 1 есть один лайк");
-        // Тестирование удаления лайка фильму
-        filmController.removeLikeFromFilm(1L, 1L);
-        assertEquals(0, film.getLikes().size(), "Ожидается, что у фильма 1 не осталось лайков");
+    public void testAddLikeToFilmWorksCorrectly() {
+        filmController.createFilm(filmRequest);
+        UserController userController = new UserController(new UserService(userStorage));
+        UserRequest userRequest = new UserRequest("testLogin1", "testLogin1@example.com", "testName1", LocalDate.of(2000, 1, 1));
+        userController.createUser(userRequest);
+
+        filmController.addLikeToFilm(1, 1);
+
+        Integer likeCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM _like WHERE film_id = " + 1, Integer.class);
+        assertEquals(1, likeCount, "Ожидается, что у фильма 1 есть 1 лайк");
+
+        filmController.removeLikeFromFilm(1, 1);
+        likeCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM _like WHERE film_id = " + 1, Integer.class);
+        assertEquals(0, likeCount, "Ожидается, что у фильма 1 нет лайков");
     }
 
     @Test
-    public void testGetPopularFilms() {
-        Film film1 = new Film();
-        film1.setId(1L);
-        film1.setName("Film 1");
-        film1.setDescription("Description of Film 1");
-        film1.setReleaseDate(LocalDate.of(2022, 1, 1));
-        film1.setDuration(120);
-        Film film2 = new Film();
-        film2.setId(2L);
-        film2.setName("Film 2");
-        film2.setDescription("Description of Film 2");
-        film2.setReleaseDate(LocalDate.of(2021, 1, 1));
-        film2.setDuration(65);
-        Film film3 = new Film();
-        film3.setId(3L);
-        film3.setName("Film 3");
-        film3.setDescription("Description of Film 3");
-        film3.setReleaseDate(LocalDate.of(2020, 1, 1));
-        film3.setDuration(90);
-        filmController.create(film1);
-        filmController.create(film2);
-        filmController.create(film3);
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
-        user.setLogin("testLogin");
-        user.setName("Test User");
-        user.setBirthday(LocalDate.of(2000, 1, 1));
-        userController.create(user);
-        // Проверяем, что список пустой при отсутствии лайков
+    public void testGetPopularFilmsWorksCorrectly() {
+        FilmRequest filmRequest2 = new FilmRequest("Test Film 2", "Description of Test Film 2",
+                120, LocalDate.of(2022, 1, 1), null, null);
+        Mpa mpa = new Mpa();
+        mpa.setId(2);
+        filmRequest2.setMpa(mpa);
+        Genre genre = new Genre();
+        genre.setId(2);
+        filmRequest2.setGenres(List.of(genre));
+        FilmRequest filmRequest3 = new FilmRequest("Test Film 3", "Description of Test Film 3",
+                120, LocalDate.of(2022, 1, 1), null, null);
+        mpa = new Mpa();
+        mpa.setId(2);
+        filmRequest3.setMpa(mpa);
+        genre = new Genre();
+        genre.setId(2);
+        filmRequest3.setGenres(List.of(genre));
+        filmController.createFilm(filmRequest);
+        filmController.createFilm(filmRequest2);
+        filmController.createFilm(filmRequest3);
+        UserController userController = new UserController(new UserService(userStorage));
+        UserRequest userRequest = new UserRequest("testLogin1", "testLogin1@example.com", "testName1", LocalDate.of(2000, 1, 1));
+        userController.createUser(userRequest);
+
         assertEquals(0, filmController.getPopularFilms(10).size(), "Ожидается, что список пустой при отсутствии лайков");
-        filmController.addLikeToFilm(1L, 1L);
-        filmController.addLikeToFilm(2L, 1L);
-        filmController.addLikeToFilm(3L, 1L);
+
+        filmController.addLikeToFilm(1, 1);
+        filmController.addLikeToFilm(2, 1);
+        filmController.addLikeToFilm(3, 1);
         filmController.getPopularFilms(10);
-        // Проверяем, что список не пустой после добавления лайков
-        assertEquals(3, filmController.getPopularFilms(10).size(), "Ожидается, что в списке есть 3 фильма");
-        filmController.removeLikeFromFilm(1L, 1L);
-        // Проверяем, что список уменьшился после удаления лайка
-        assertEquals(2, filmController.getPopularFilms(10).size(), "Ожидается, что в списке есть 2 фильма");
+        assertEquals(3, filmController.getPopularFilms(10).size(), "Ожидается, что в списке теперь есть 3 фильма");
+
+        filmController.removeLikeFromFilm(1, 1);
+        assertEquals(2, filmController.getPopularFilms(10).size(), "Ожидается, что в списке осталось 2 фильма");
     }
 
 }

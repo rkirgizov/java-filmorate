@@ -4,19 +4,19 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @Data
 @EqualsAndHashCode(exclude = {"id", "description"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Film {
-    Long id;
-    Set<Long> genres = new HashSet<>();
-    Integer rating;
+    Integer id;
     String name;
     String description;
-    LocalDate releaseDate;
     Integer duration;
-    Set<Long> likes = new HashSet<>();
+    LocalDate releaseDate;
+    Mpa mpa;
+    List<Integer> genres = new ArrayList<>();
+
+
 }
