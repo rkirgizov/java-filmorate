@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.FilmDto;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
@@ -50,7 +49,7 @@ public class FilmService {
     }
 
     public FilmDto createFilm(FilmRequest filmRequest) {
-        FilmRequest validatedFilmRequest = validateFilmRequest(filmRequest);
+        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage);
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
@@ -59,8 +58,10 @@ public class FilmService {
 
     public FilmDto updateFilm(int filmId, FilmRequest filmRequest) {
         Film filmForUpdate = filmStorage.findFilmById(filmId)
-                .map(film -> FilmMapper.mapFilmFieldsForUpdate(film, filmRequest))
+                .map(film -> FilmValidator.validateFilmRequestForUpdate(film, filmRequest, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilm(filmRequest))
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
+        filmForUpdate.setId(filmId);
         Film filmUpdated = filmStorage.updateFilm(filmForUpdate);
 
         return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage);
@@ -89,42 +90,14 @@ public class FilmService {
                 .toList();
     }
 
-    public FilmRequest validateFilmRequest(FilmRequest filmRequest) {
-        if (!filmRequest.hasName()) {
-            throw new ValidationException("Название фильма не заполнено");
-        }
 
-        if (!filmRequest.hasDescription()) {
-            throw new ValidationException("Описание фильма не заполнено");
-        }
-        FilmValidator.validateDescription(filmRequest.getDescription());
-
-        if (!filmRequest.hasReleaseDate()) {
-            throw new ValidationException("Дата релиза фильма не заполнена");
-        }
-        FilmValidator.validateReleaseDate(filmRequest.getReleaseDate());
-
-        if (!filmRequest.hasDuration()) {
-            throw new ValidationException("Продолжительность фильма не заполнена");
-        }
-        FilmValidator.validateDuration(filmRequest.getDuration());
-
-        if (!filmRequest.hasMpa()) {
-            log.warn("Для добавляемого фильма {} не указан возрастной рейтинг", filmRequest.getName());
-            filmRequest.setMpa(null);
-        } else {
-            filmRequest.setMpa(FilmValidator.validateMpa(filmRequest.getMpa().getId(), mpaStorage));
-        }
-
-        if (!filmRequest.hasGenre()) {
-            log.warn("Для добавляемого фильма {} не указан ни один жанр", filmRequest.getName());
-            filmRequest.setGenres(new ArrayList<>());
-        } else {
-            filmRequest.setGenres(FilmValidator.validateGenre(filmRequest.getGenres(), genreStorage));
-        }
-
-        return filmRequest;
-    }
+    /**
+     * Проверяем при инициализации приложения ожидаемое количество жанров и возрастных рейтингов в хранилище.
+     * Если количество не соответствует ожидаемому, то программа не будет работать корректно,
+     * поэтому выбрасываем исключение NotFoundException.
+     *
+     * @param count ожидаемое количество жанров
+     */
 
     public void checkGenreCount(Integer count) {
         if (!genreStorage.checkGenreCount(count)) {

@@ -107,8 +107,7 @@ public class FilmControllerTest {
     @Test
     public void testUpdateExistingFilmWorksCorrectly() {
         filmController.createFilm(filmRequest);
-        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("Test Film Updated", "Description of Test Film Updated",
-                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
+        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("Test Film Updated", "Description of Test Film Updated", 90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
         Mpa mpaUpdate = new Mpa();
         mpaUpdate.setId(2);
         mpaUpdate.setName("PG");

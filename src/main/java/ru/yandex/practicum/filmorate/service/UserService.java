@@ -3,9 +3,7 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.dto.UserDto;
-import ru.yandex.practicum.filmorate.dto.UserFriendDto;
-import ru.yandex.practicum.filmorate.dto.UserRequest;
+import ru.yandex.practicum.filmorate.dto.*;
 import ru.yandex.practicum.filmorate.exception.NonCriticalException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -40,7 +38,7 @@ public class UserService {
     }
 
     public UserDto createUser(UserRequest userRequest) {
-        validateUserForCreate(userRequest);
+        UserValidator.validateUserForCreate(userRequest);
         for (User value : userStorage.findAllUsers()) {
             if (userRequest.getLogin().equals(value.getLogin()) || userRequest.getEmail().equals(value.getEmail())) {
                 throw new ValidationException("Пользователь с таким login или email уже существует");
@@ -54,22 +52,11 @@ public class UserService {
 
     public UserDto updateUser(int userId, UserRequest userRequest) {
         User userForUpdate = userStorage.findUserById(userId)
-                .map(user -> UserMapper.mapUserFieldsForUpdate(user, userRequest))
+                .map(user -> UserValidator.validateUserRequestForUpdate(user, userRequest, userStorage))
+                .map(user -> UserMapper.mapToUser(userRequest))
                 .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
-        for (User value : userStorage.findAllUsers()) {
-            if (userRequest.hasLogin()) {
-                if (!userForUpdate.getId().equals(value.getId()) && userForUpdate.getLogin().equals(value.getLogin())) {
-                    throw new ValidationException("Обновлённый логин совпадает с логином другого пользователя");
-                }
-            }
-            if (userRequest.hasEmail()) {
-                if (!userForUpdate.getId().equals(value.getId()) && userForUpdate.getEmail().equals(value.getEmail())) {
-                    throw new ValidationException("Обновлённый email совпадает с email другого пользователя");
-                }
-            }
-        }
+        userForUpdate.setId(userId);
         User userUpdated = userStorage.updateUser(userForUpdate);
-
         return UserMapper.mapToUserDto(userUpdated);
     }
 
@@ -126,28 +113,6 @@ public class UserService {
         }
 
         return friends1;
-    }
-
-    private void validateUserForCreate(UserRequest userRequest) {
-        if (!userRequest.hasEmail()) {
-            throw new ValidationException("Электронная почта не заполнена");
-        }
-        UserValidator.validateEmail(userRequest.getEmail());
-
-        if (!userRequest.hasLogin()) {
-            throw new ValidationException("Логин не заполнен");
-        }
-        UserValidator.validateLogin(userRequest.getLogin());
-
-        if (!userRequest.hasBirthday()) {
-            throw new ValidationException("Дата рождения не заполнена");
-        }
-        UserValidator.validateBirthday(userRequest.getBirthday());
-
-        if (!userRequest.hasName()) {
-            userRequest.setName(userRequest.getLogin());
-            log.debug("Пустое имя пользователя заменено на логин");
-        }
     }
 
 }

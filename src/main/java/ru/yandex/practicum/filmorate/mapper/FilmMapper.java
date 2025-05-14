@@ -9,7 +9,6 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.MpaStorage;
-import ru.yandex.practicum.filmorate.validation.FilmValidator;
 
 import java.util.List;
 import java.util.Objects;
@@ -58,33 +57,6 @@ public final class FilmMapper {
         return dto;
     }
 
-    public static Film mapFilmFieldsForUpdate(Film film, FilmRequest request) {
-        if (request.hasName()) {
-            film.setName(request.getName());
-        }
-        if (request.hasDescription()) {
-            FilmValidator.validateDescription(request.getDescription());
-            film.setDescription(request.getDescription());
-        }
-        if (request.hasDuration()) {
-            film.setDuration(request.getDuration());
-        }
-        if (request.hasReleaseDate()) {
-            FilmValidator.validateReleaseDate(request.getReleaseDate());
-            film.setReleaseDate(request.getReleaseDate());
-        }
-        if (request.hasMpa()) {
-            film.setMpa(request.getMpa());
-        }
-        if (request.hasGenre()) {
-            List<Integer> genres = request.getGenres().stream()
-                    .map(Genre::getId)
-                    .toList();
-            film.setGenres(genres);
-        }
-
-        return film;
-    }
 
 
 }
