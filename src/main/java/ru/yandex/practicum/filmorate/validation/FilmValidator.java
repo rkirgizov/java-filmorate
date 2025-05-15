@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -88,7 +89,12 @@ public final class FilmValidator {
         }
 
         if (hasNoGenre(filmRequest)) {
-            filmRequest.setGenres(validateGenre(filmRequest.getGenres(), genreStorage));
+            List<Genre> genres = film.getGenres().stream()
+                    .map(genreStorage::findGenreById)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+            filmRequest.setGenres(genres);
         } else {
             validateGenre(filmRequest.getGenres(), genreStorage);
         }
