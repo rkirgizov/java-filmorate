@@ -1,22 +1,21 @@
 
-package ru.yandex.practicum.filmorate.storage;
+package ru.yandex.practicum.filmorate.storage.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import ru.yandex.practicum.filmorate.dto.UserFriendDto;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
-@Component
-public class InMemoryUserStorage implements UserStorage {
+@Component("UserStorageInMemory")
+public class UserStorageInMemory implements UserStorage {
 
-    private final Map<Long, User> users = new HashMap<>();
+    private final Map<Integer, User> users = new HashMap<>();
 
     @Override
     public User createUser(User user) {
@@ -45,22 +44,39 @@ public class InMemoryUserStorage implements UserStorage {
     }
 
     @Override
-    public Collection<User> findAll() {
+    public void deleteUser(int userId) {
+        if (!users.containsKey(userId)) {
+            throw new NotFoundException(String.format("Пользователь с id = %d  - не найден", userId));
+        }
+        users.remove(userId);
+    }
+
+    @Override
+    public Optional<User> findUserById(int userId) {
+        return Optional.ofNullable(users.get(userId));
+    }
+
+    @Override
+    public List<User> findAllUsers() {
         return new ArrayList<>(users.values());
     }
 
     @Override
-    public User findUserById(Long userId) {
-        return users.get(userId);
+    public void addFriendRequest(int userId, int friendId) {
+
     }
 
     @Override
-    public void deleteUser(Long userId) {
-        users.remove(userId);
+    public void deleteFriend(int userId, int friendId) {
     }
 
-    private long getNextId() {
-        long currentMaxId = users.keySet().stream().mapToLong(id -> id).max().orElse(0);
+    @Override
+    public List<UserFriendDto> findFriendsByUserId(int userId) {
+        return List.of();
+    }
+
+    private int getNextId() {
+        int currentMaxId = users.keySet().stream().mapToInt(id -> id).max().orElse(0);
         return ++currentMaxId;
     }
 

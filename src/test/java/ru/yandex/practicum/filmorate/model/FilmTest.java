@@ -2,62 +2,142 @@ package ru.yandex.practicum.filmorate.model;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.jdbc.JdbcTestUtils;
 import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.dto.FilmRequest;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.FilmRowMapper;
+import ru.yandex.practicum.filmorate.mapper.GenreRowMapper;
+import ru.yandex.practicum.filmorate.mapper.MpaRowMapper;
+import ru.yandex.practicum.filmorate.mapper.UserRowMapper;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.MpaStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
+import ru.yandex.practicum.filmorate.storage.impl.FilmStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.GenreStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.MpaStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.impl.UserStorageDbImpl;
 
 import java.time.LocalDate;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@SpringBootTest
+@JdbcTest
+@AutoConfigureTestDatabase
+@Import({FilmStorageDbImpl.class,
+        FilmRowMapper.class,
+        MpaStorageDbImpl.class,
+        MpaRowMapper.class,
+        GenreStorageDbImpl.class,
+        GenreRowMapper.class,
+        UserStorageDbImpl.class,
+        UserRowMapper.class})
 public class FilmTest {
 
+    @Autowired
+    private FilmStorage filmStorage;
+
+    @Autowired
+    private MpaStorage mpaStorage;
+
+    @Autowired
+    private GenreStorage genreStorage;
+
+    @Autowired
+    private UserStorage userStorage;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private FilmController filmController;
-    private Film film;
+    private FilmRequest filmRequest;
 
     @BeforeEach
     public void setUp() {
-        filmController = new FilmController(new FilmService(new InMemoryFilmStorage(),new UserService(new InMemoryUserStorage())));
-        film = new Film();
-        film.setId(1L);
-        film.setName("Test Film");
-        film.setDescription("Description of Test Film");
-        film.setReleaseDate(LocalDate.of(2022, 1, 1));
+        JdbcTestUtils.deleteFromTables(jdbcTemplate, "_user");
+        jdbcTemplate.execute("ALTER TABLE _user ALTER COLUMN id RESTART WITH 1");
+        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, userStorage));
+        filmRequest = new FilmRequest("Test Film", "Description of Test Film",
+                120, LocalDate.of(2022, 1, 1), new Mpa(), List.of(new Genre()));
     }
 
     @Test
     void validationNameWorkCorrectly() {
-        film.setName(null);
-        assertEquals("Название фильма не заполнено", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за null в name");
-        film.setName(" ");
-        assertEquals("Название фильма не заполнено", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за пустого значения в name");
+        filmRequest.setName(null);
+        assertEquals("Название фильма не заполнено",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за null в name");
+        filmRequest.setName(" ");
+
+        assertEquals("Название фильма не заполнено",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за пустого значения в name");
     }
 
     @Test
     void validationDescriptionWorkCorrectly() {
-        film.setDescription("A".repeat(201));
-        assertEquals("Описание фильма не должно превышать 200 символов", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за слишком длинного описания");
+        filmRequest.setDescription("A".repeat(201));
+        assertEquals("Описание фильма не должно превышать 200 символов",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за слишком длинного описания");
     }
 
     @Test
     void validationReleaseDateWorkCorrectly() {
-        film.setReleaseDate(LocalDate.of(1895, 12, 27));
-        assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за даты релиза раньше 1895");
+        filmRequest.setReleaseDate(LocalDate.of(1895, 12, 27));
+        assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за даты релиза раньше 1895");
     }
 
     @Test
     void validationDurationDateWorkCorrectly() {
-        film.setDuration(null);
-        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за null в длительности");
-        film.setDuration(0);
-        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за длительности равной нулю");
-        film.setDuration(-1);
-        assertEquals("Продолжительность фильма должна быть положительным числом", assertThrows(ValidationException.class, () -> filmController.create(film)).getMessage(), "Ожидается ошибка валидации из-за отрицательной длительности");
+        filmRequest.setDuration(null);
+        assertEquals("Продолжительность фильма не заполнена",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за null в длительности");
+        filmRequest.setDuration(0);
+        assertEquals("Продолжительность фильма должна быть положительным числом",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за длительности равной нулю");
+        filmRequest.setDuration(-1);
+        assertEquals("Продолжительность фильма должна быть положительным числом",
+                assertThrows(ValidationException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации из-за отрицательной длительности");
     }
+
+    @Test
+    void validationFailMpaWorkCorrectly() {
+        Mpa mpa = new Mpa();
+        mpa.setId(100);
+        filmRequest.setMpa(mpa);
+        assertEquals("Рейтинг МПА с id = 100 не найден в справочнике",
+                assertThrows(NotFoundException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации NotFoundException из-за неизвестного рейтинга МПА");
+    }
+
+    @Test
+    void validationFailGenreWorkCorrectly() {
+        Mpa mpa = new Mpa();
+        mpa.setId(1);
+        filmRequest.setMpa(mpa);
+        Genre genre = new Genre();
+        genre.setId(100);
+        filmRequest.setGenres(List.of(genre));
+        assertEquals("Жанр с id = 100 не найден в справочнике",
+                assertThrows(NotFoundException.class, () -> filmController.createFilm(filmRequest)).getMessage(),
+                "Ожидается ошибка валидации NotFoundException из-за неизвестного жанра");
+    }
+
 
 }

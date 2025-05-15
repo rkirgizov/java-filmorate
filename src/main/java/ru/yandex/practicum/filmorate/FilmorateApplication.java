@@ -8,9 +8,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class FilmorateApplication {
+
 	public static void main(String[] args) {
 		((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME))
 				.setLevel(Level.DEBUG);
 		SpringApplication.run(FilmorateApplication.class, args);
 	}
+
+
 }

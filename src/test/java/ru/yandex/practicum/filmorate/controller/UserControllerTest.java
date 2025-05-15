@@ -2,115 +2,136 @@ package ru.yandex.practicum.filmorate.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.jdbc.JdbcTestUtils;
+import ru.yandex.practicum.filmorate.dto.UserDto;
+import ru.yandex.practicum.filmorate.dto.UserRequest;
+import ru.yandex.practicum.filmorate.dto.UserRequestUpdate;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.mapper.UserMapper;
+import ru.yandex.practicum.filmorate.mapper.UserRowMapper;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
+import ru.yandex.practicum.filmorate.storage.impl.UserStorageDbImpl;
 
 import java.time.LocalDate;
 
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@JdbcTest
+@AutoConfigureTestDatabase
+@Import({UserStorageDbImpl.class, UserRowMapper.class})
 public class UserControllerTest {
 
+    @Autowired
+    private UserStorage userStorage;
+
     private UserController userController;
-    private User user;
+    private UserRequest userRequest;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     public void setUp() {
-        userController = new UserController(new UserService(new InMemoryUserStorage()));
-        user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
-        user.setLogin("testLogin");
-        user.setName("Test User");
-        user.setBirthday(LocalDate.of(2000, 1, 1));
+        JdbcTestUtils.deleteFromTables(jdbcTemplate, "_user", "_user_friend");
+        jdbcTemplate.execute("ALTER TABLE _user ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE _user_friend ALTER COLUMN id RESTART WITH 1");
+        userController = new UserController(new UserService(userStorage));
+        userRequest = new UserRequest("testLogin1", "testLogin1@example.com", "testName1", LocalDate.of(2000, 1, 1));
     }
 
     @Test
     public void testSearchUsersWorksCorrectly() {
-        userController.create(user);
-        assertEquals(1, userController.findAll().size(), "Ожидается один найденный пользователь");
-        User newUser = new User();
-        newUser.setId(2L);
-        newUser.setEmail("test1@example.com");
-        newUser.setLogin("test1Login");
-        newUser.setName("Test 1 User");
-        newUser.setBirthday(LocalDate.of(2000, 1, 1));
-        userController.create(newUser);
-        assertEquals(2, userController.findAll().size(), "Ожидается два найденных пользователя");
+        userController.createUser(userRequest);
+        assertEquals(1, userController.findAllUsers().size(), "Ожидается один найденный пользователь");
+
+        userRequest = new UserRequest("testLogin2", "testLogin2@example.com", "testName2", LocalDate.of(2000, 1, 1));
+        userController.createUser(userRequest);
+        assertEquals(2, userController.findAllUsers().size(), "Ожидается два найденных пользователя");
     }
 
     @Test
-    void testCreateUser() {
-        User createdUser = userController.create(user);
-        assertEquals(user, createdUser, "Ожидается корректное создание пользователя");
+    void testCreateUserWorksCorrectly() {
+        UserDto createdUserDto = userController.createUser(userRequest);
+        UserDto requestUserDto =  UserMapper.mapToUserDto(UserMapper.mapToUser(userRequest));
+        requestUserDto.setId(createdUserDto.getId());
+        assertEquals(requestUserDto, createdUserDto, "Ожидается создание пользователя с корректными данными");
     }
 
     @Test
-    public void testUpdateExistingUser() {
-        userController.create(user);
-        User updatedUser = new User();
-        updatedUser.setId(1L);
-        updatedUser.setEmail("updated@example.com");
-        updatedUser.setLogin("updatedLogin");
-        updatedUser.setName("Updated User");
-        updatedUser.setBirthday(LocalDate.of(2000, 1, 1));
-        User resultUser = userController.update(updatedUser);
-        assertEquals("updated@example.com", resultUser.getEmail(), "Ожидается, что Email пользователя обновлен");
-        assertEquals("Updated User", resultUser.getName(), "Ожидается, что Имя пользователя обновлено");
-        assertEquals("updatedLogin", resultUser.getLogin(), "Ожидается, что Логин пользователя обновлен");
+    public void testRemoveUserWorksCorrectly() {
+        userController.createUser(userRequest);
+        userController.removeUser(1);
+        assertThrows(NotFoundException.class, () -> userController.findUserById(1),
+                "Ожидается исключение NotFoundException при попытке найти удаленного пользователя");
     }
 
     @Test
-    public void testUpdateNonExistingUser() {
-        assertThrows(NotFoundException.class, () -> userController.update(user),
+    public void testUpdateExistingUserWorksCorrectly() {
+        UserDto userDto = userController.createUser(userRequest);
+        int userId = userDto.getId();
+        UserRequestUpdate userRequestUpdate = new UserRequestUpdate(userId, "testLogin1Updated", "testLogin1Updated@example.com",
+                "testName1Updated", LocalDate.of(1980, 1, 1));
+        userController.updateUser(userRequestUpdate);
+        UserDto updateUserDto = userController.findUserById(userId);
+        assertEquals("testLogin1Updated@example.com", updateUserDto.getEmail(), "Ожидается, что Email пользователя обновлен");
+        assertEquals("testName1Updated", updateUserDto.getName(), "Ожидается, что Имя пользователя обновлено");
+        assertEquals("testLogin1Updated", updateUserDto.getLogin(), "Ожидается, что Логин пользователя обновлен");
+    }
+
+    @Test
+    public void testUpdateNonExistingUserWorksCorrectly() {
+        UserRequestUpdate userRequestUpdate = new UserRequestUpdate(1, "NonExistingUser", "NonExistingUser@example.com",
+                "NonExistingUserName", LocalDate.of(1980, 1, 1));
+        assertThrows(NotFoundException.class, () -> userController.updateUser(userRequestUpdate),
                 "Ожидается исключение NotFoundException при попытке обновления несуществующего пользователя");
     }
 
     @Test
-    public void testAddAndRemoveFriends() {
-        userController.create(user);
-        // Тестирование добавления друзей
-        User friend = new User();
-        friend.setId(2L);
-        friend.setEmail("friend@example.com");
-        friend.setLogin("friendLogin");
-        friend.setName("Friend User");
-        friend.setBirthday(LocalDate.of(2000, 1, 2));
-        userController.create(friend);
-        userController.addToFriends(1L, 2L);
-        assertEquals(1, user.getFriends().size(), "Ожидается, что пользователь имеет одного друга");
-        assertTrue(user.getFriends().contains(2L), "Ожидается, что пользователь 2 добавлен в друзья пользователя 1");
-        assertTrue(friend.getFriends().contains(1L), "Ожидается, что пользователь 1 добавлен в друзья пользователя 2");
-        // Тестирование удаления друзей
-        userController.removeFromFriends(1L, 2L);
-        assertFalse(user.getFriends().contains(2L), "Ожидается, что пользователь 2 удален из друзей пользователя 1");
-        assertFalse(friend.getFriends().contains(1L), "Ожидается, что пользователь 1 удален из друзей пользователя 2");
+    public void testAddAndRemoveFriendsWorksCorrectly() {
+        userController.createUser(userRequest);
+        UserRequest userRequestFriend = new UserRequest("testLogin2", "testLogin2@example.com", "testName2", LocalDate.of(1990, 1, 1));
+        userController.createUser(userRequestFriend);
+        userController.addFriendRequest(1, 2);
+        assertThat(userController.findFriendsByUserId(1))
+                .as("Ожидается, что пользователь с id 1 имеет одного друга с id 2")
+                .isNotEmpty()
+                .hasSize(1)
+                .first()
+                .hasFieldOrPropertyWithValue("id", 2)
+                .hasFieldOrPropertyWithValue("login", "testLogin2");
+        assertThat(userController.findFriendsByUserId(2))
+                .as("Ожидается, что пользователь с id 2 не имеет друзей (однонаправленное добавление друзей)")
+                .isEmpty();
+
+        userController.removeFromFriends(1, 2);
+        assertThat(userController.findFriendsByUserId(1))
+                .as("Ожидается, что пользователь с id 2 удален из друзей пользователя с id 1")
+                .isEmpty();
     }
 
     @Test
-    public void testGetCommonFriendsList() {
-        User friend1 = new User();
-        friend1.setId(2L);
-        friend1.setEmail("friend1@example.com");
-        friend1.setLogin("friend1Login");
-        friend1.setName("Friend 1 User");
-        friend1.setBirthday(LocalDate.of(2000, 1, 2));
-        User friend2 = new User();
-        friend2.setId(3L);
-        friend2.setEmail("friend3@example.com");
-        friend2.setLogin("friend3Login");
-        friend2.setName("Friend 3 User");
-        friend2.setBirthday(LocalDate.of(2000, 1, 3));
-        userController.create(user);
-        userController.create(friend1);
-        userController.create(friend2);
-        userController.addToFriends(1L, 2L);
-        userController.addToFriends(1L, 3L);
-        assertEquals(friend1.getFriends().contains(1L),friend2.getFriends().contains(1L), "Ожидается, что пользователь 1 является общим другом для пользователей 2 и 3");
+    public void testGetCommonFriendsListWorksCorrectly() {
+        UserRequest userRequest2 = new UserRequest("testLogin2", "testLogin2@example.com", "testName2", LocalDate.of(1990, 1, 1));
+        UserRequest userRequest3 = new UserRequest("testLogin3", "testLogin3@example.com", "testName3", LocalDate.of(1980, 1, 1));
+        userController.createUser(userRequest);
+        userController.createUser(userRequest2);
+        userController.createUser(userRequest3);
+        userController.addFriendRequest(1, 3);
+        userController.addFriendRequest(2, 3);
+        assertThat(userController.findCommonFriends(1, 2))
+                .as("Ожидается, что пользователь c id 1 и 2 имеют общего друга с id 3")
+                        .isNotEmpty()
+                .hasSize(1)
+                .first()
+                .hasFieldOrPropertyWithValue("id", 3)
+                .hasFieldOrPropertyWithValue("login", "testLogin3");
     }
 
 }
