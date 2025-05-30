@@ -62,9 +62,8 @@ public final class FilmMapper {
         dto.setGenres(genres);
 
         List<Director> directors = film.getDirectors().stream()
-                .map(directorStorage::findDirectorById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(id -> directorStorage.findDirectorById(id).orElse(null))
+                .filter(Objects::nonNull)
                 .toList();
         dto.setDirectors(directors);
 
