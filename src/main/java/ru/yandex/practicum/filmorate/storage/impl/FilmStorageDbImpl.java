@@ -46,7 +46,6 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
             LEFT JOIN _like l ON f.id = l.film_id
             """;
 
-
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
     }
@@ -199,17 +198,20 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
 
     @Override
     public List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector) {
-        StringBuilder sqlBuilder = new StringBuilder("SELECT DISTINCT f.* FROM _film f ");
-        List<Object> params = new ArrayList<>();
+        StringBuilder sqlBuilder = new StringBuilder(
+                "SELECT f.*, COUNT(l.user_id) AS likes_count FROM _film f ");
 
         if (searchByDirector) {
-            sqlBuilder.append("JOIN _film_director fd ON f.id = fd.film_id ");
-            sqlBuilder.append("JOIN _director d ON fd.director_id = d.id ");
+            sqlBuilder.append("LEFT JOIN _film_director fd ON f.id = fd.film_id ");
+            sqlBuilder.append("LEFT JOIN _director d ON fd.director_id = d.id ");
         }
 
+        sqlBuilder.append("LEFT JOIN _like l ON f.id = l.film_id ");
         sqlBuilder.append("WHERE ");
 
         List<String> conditions = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
         if (searchByTitle) {
             conditions.add("LOWER(f.name) LIKE ?");
             params.add("%" + query + "%");
@@ -221,7 +223,7 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         }
 
         sqlBuilder.append(String.join(" OR ", conditions));
-        sqlBuilder.append(" ORDER BY (SELECT COUNT(*) FROM _like l WHERE l.film_id = f.id) DESC");
+        sqlBuilder.append(" GROUP BY f.id ORDER BY likes_count DESC");
 
         return findMany(sqlBuilder.toString(), params.toArray());
     }
