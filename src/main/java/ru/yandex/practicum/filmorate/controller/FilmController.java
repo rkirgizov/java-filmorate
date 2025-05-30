@@ -94,4 +94,5 @@ public class FilmController {
         log.info("Получен запрос GET /films/search с параметрами query={}, by={}", query, by);
         return filmService.searchFilms(query, by);
     }
+    
 }
