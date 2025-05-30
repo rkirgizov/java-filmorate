@@ -5,9 +5,11 @@ import lombok.Data;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.MpaStorage;
 
@@ -22,7 +24,7 @@ import java.util.stream.Collectors;
 @Data
 public final class FilmValidator {
 
-    public static FilmRequest validateFilmRequestNew(FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage) {
+    public static FilmRequest validateFilmRequestNew(FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage , DirectorStorage directorStorage) {
         if (hasNoName(filmRequest)) {
             throw new ValidationException("Название фильма не заполнено");
         }
@@ -54,6 +56,13 @@ public final class FilmValidator {
             filmRequest.setGenres(new ArrayList<>());
         } else {
             filmRequest.setGenres(validateGenre(filmRequest.getGenres(), genreStorage));
+        }
+
+        if (hasNoDirector(filmRequest)) {
+            log.warn("Для фильма {} не указан ни один режиссёр", filmRequest.getName());
+            filmRequest.setDirectors(new ArrayList<>());
+        } else {
+            filmRequest.setDirectors(validateDirectors(filmRequest.getDirectors(), directorStorage));
         }
 
         return filmRequest;
@@ -130,6 +139,9 @@ public final class FilmValidator {
         return !Objects.nonNull(request.getGenres()) || request.getGenres().isEmpty();
     }
 
+    public static boolean hasNoDirector(FilmRequest request) {
+        return request.getDirectors() == null || request.getDirectors().isEmpty();
+    }
     /**
      * Валидация параметров фильма
      */
@@ -164,6 +176,15 @@ public final class FilmValidator {
                 .map(genreId -> genreStorage.findGenreById(genreId)
                         .orElseThrow(() -> new NotFoundException(String.format("Жанр с id = %d не найден в справочнике", genreId))))
                 .collect(Collectors.toList());
+    }
+
+
+
+    public static List<Director> validateDirectors(List<Director> directors, DirectorStorage directorStorage) {
+        return directors.stream()
+                .map(d -> directorStorage.findDirectorById(d.getId())
+                        .orElseThrow(() -> new NotFoundException("Режиссёр с id = " + d.getId() + " не найден")))
+                .toList();
     }
 
 }

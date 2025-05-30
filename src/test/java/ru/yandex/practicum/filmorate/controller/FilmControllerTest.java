@@ -80,6 +80,7 @@ public class FilmControllerTest {
         Director director = new Director();
         director.setId(1);
         director.setName("Quentin Tarantino");
+        directorStorage.createDirector(director);
         filmRequest.setDirectors(List.of(director));
     }
 
@@ -99,6 +100,7 @@ public class FilmControllerTest {
         Director director = new Director();
         director.setName("Christopher Nolan");
         director.setId(2);
+        directorStorage.createDirector(director);
         filmRequest2.setDirectors(List.of(director));
         filmController.createFilm(filmRequest2);
         assertEquals(2, filmController.findAll().size(), "Ожидается два найденных фильма");
@@ -129,6 +131,7 @@ public class FilmControllerTest {
         Director directorUpdate = new Director();
         directorUpdate.setName("Christopher Nolan");
         directorUpdate.setId(2);
+        directorStorage.createDirector(directorUpdate);
         filmRequestUpdate.setDirectors(List.of(directorUpdate));
 
         filmController.updateFilm(filmRequestUpdate);
@@ -183,6 +186,7 @@ public class FilmControllerTest {
         Director director = new Director();
         director.setId(2);
         director.setName("Christopher Nolan");
+        directorStorage.createDirector(director);
         filmRequest2.setDirectors(List.of(director));
 
         FilmRequest filmRequest3 = new FilmRequest("Test Film 3", "Description of Test Film 3",
@@ -197,6 +201,7 @@ public class FilmControllerTest {
         director = new Director();
         director.setId(3);
         director.setName("Ridley Scott");
+        directorStorage.createDirector(director);
         filmRequest3.setDirectors(List.of(director));
 
         filmController.createFilm(filmRequest);
