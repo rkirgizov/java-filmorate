@@ -75,12 +75,17 @@ public class FilmStorageInMemory implements FilmStorage {
     }
 
     @Override
+    public List<Film> findCommonFilms(int userId, int friendId) {
+        log.warn("In-memory FilmStorage does not fully support common films logic. Returning empty list.");
+    @Override
     public List<Film> getFilmsByDirector(int directorId) {
         return films.values().stream()
                 .filter(film -> film.getDirectors() != null && film.getDirectors().contains(directorId))
                 .toList();
     }
 
+        return new ArrayList<>();
+    }
     @Override
     public int countLikes(int filmId) {
         return filmLikes.getOrDefault(filmId, Collections.emptySet()).size();

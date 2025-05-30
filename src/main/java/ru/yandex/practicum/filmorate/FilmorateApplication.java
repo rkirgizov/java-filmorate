@@ -14,5 +14,4 @@ public class FilmorateApplication {
 				.setLevel(Level.DEBUG);
 		SpringApplication.run(FilmorateApplication.class, args);
 	}
-
 }
