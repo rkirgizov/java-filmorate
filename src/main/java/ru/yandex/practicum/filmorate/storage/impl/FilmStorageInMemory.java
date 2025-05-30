@@ -86,4 +86,9 @@ public class FilmStorageInMemory implements FilmStorage {
         return filmLikes.getOrDefault(filmId, Collections.emptySet()).size();
     }
 
+    public List<Film> findCommonFilms(int userId, int friendId) {
+        log.warn("In-memory FilmStorage does not fully support common films logic. Returning empty list.");
+
+        return new ArrayList<>();
+    }
 }
