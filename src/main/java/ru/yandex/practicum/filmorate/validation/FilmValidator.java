@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @Data
 public final class FilmValidator {
 
-    public static FilmRequest validateFilmRequestNew(FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage , DirectorStorage directorStorage) {
+    public static FilmRequest validateFilmRequestNew(FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage) {
         if (hasNoName(filmRequest)) {
             throw new ValidationException("Название фильма не заполнено");
         }
