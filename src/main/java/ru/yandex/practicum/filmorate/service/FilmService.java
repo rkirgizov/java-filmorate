@@ -57,6 +57,12 @@ public class FilmService {
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
+        if (!validatedFilmRequest.getDirectors().isEmpty()) {
+            filmStorage.deleteDirectorsFromFilm(film.getId());
+            Film finalFilm = film;
+            validatedFilmRequest.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(finalFilm.getId(), director.getId()));
+        }
+
         return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
     }
 
@@ -70,6 +76,12 @@ public class FilmService {
         filmToPersist.setId(filmId);
 
         Film filmUpdated = filmStorage.updateFilm(filmToPersist);
+
+        // Сохраняем режиссёров
+        if (!validatedFilmRequestForUpdate.getDirectors().isEmpty()) {
+            filmStorage.deleteDirectorsFromFilm(filmId); // очищаем старые данные
+            validatedFilmRequestForUpdate.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(filmId, director.getId()));
+        }
 
         return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage, directorStorage);
     }
@@ -136,14 +148,12 @@ public class FilmService {
     }
 
     public List<FilmDto> getFilmsByDirectorSorted(int directorId, String sortBy) {
-        // Получаем все фильмы режиссёра через storage
         List<Film> films = filmStorage.getFilmsByDirector(directorId);
 
         if (films.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // Сортировка
         switch (sortBy.toLowerCase()) {
             case "year":
                 films.sort(Comparator.comparing(Film::getReleaseDate));
@@ -159,7 +169,6 @@ public class FilmService {
                 throw new IllegalArgumentException("Неподдерживаемый параметр сортировки: " + sortBy);
         }
 
-        // Преобразуем в DTO и возвращаем
         return films.stream()
                 .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .toList();

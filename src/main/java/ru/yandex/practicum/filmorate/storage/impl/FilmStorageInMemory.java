@@ -15,6 +15,7 @@ public class FilmStorageInMemory implements FilmStorage {
 
     private final Map<Integer, Film> films = new HashMap<>();
     private final Map<Integer, Set<Integer>> filmLikes = new HashMap<>();
+    private final Map<Integer, Set<Integer>> filmDirectors = new HashMap<>();
 
     @Override
     public Optional<Film> findFilmById(int filmId) {
@@ -92,6 +93,16 @@ public class FilmStorageInMemory implements FilmStorage {
     public int countLikes(int filmId) {
 
         return filmLikes.getOrDefault(filmId, Collections.emptySet()).size();
+    }
+
+    @Override
+    public void deleteDirectorsFromFilm(int filmId) {
+        filmDirectors.remove(filmId);
+    }
+
+    @Override
+    public void addDirectorToFilm(int filmId, int directorId) {
+        filmDirectors.computeIfAbsent(filmId, k -> new HashSet<>()).add(directorId);
     }
 }
 

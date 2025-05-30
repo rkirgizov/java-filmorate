@@ -25,4 +25,8 @@ public interface FilmStorage {
     List<Film> getFilmsByDirector(int directorId);
 
     int countLikes(int filmId);
+
+    public void deleteDirectorsFromFilm(int filmId);
+
+    public void addDirectorToFilm(int filmId, int directorId);
 }

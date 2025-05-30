@@ -43,6 +43,9 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 ORDER BY COUNT(all_likes.user_id) DESC -- Сортируем по общему количеству лайков (популярности)
             """;
 
+    private static final String DELETE_DIRECTORS_FROM_FILM = "DELETE FROM _film_director WHERE film_id = ?";
+    private static final String INSERT_DIRECTOR_TO_FILM = "INSERT INTO _film_director (film_id, director_id) VALUES (?, ?)";
+
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
     }
@@ -146,5 +149,13 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         List<Film> commonFilms = findMany(FIND_COMMON_FILMS_QUERY, userId, friendId);
         log.info("Найдено {} общих фильмов для пользователей {} и {}", commonFilms.size(), userId, friendId);
         return commonFilms;
+    }
+
+    public void deleteDirectorsFromFilm(int filmId) {
+        delete(DELETE_DIRECTORS_FROM_FILM, filmId);
+    }
+
+    public void addDirectorToFilm(int filmId, int directorId) {
+        insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
     }
 }

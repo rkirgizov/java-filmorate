@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.MpaStorage;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -62,8 +63,9 @@ public final class FilmMapper {
         dto.setGenres(genres);
 
         List<Director> directors = film.getDirectors().stream()
-                .map(directorId -> directorStorage.findDirectorById(directorId).orElse(null))
-                .filter(Objects::nonNull)
+                .map(directorStorage::findDirectorById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .toList();
         dto.setDirectors(directors);
 
