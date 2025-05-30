@@ -77,6 +77,7 @@ public class FilmController {
         log.info("Возвращен список из {} общих фильмов для пользователей {} и {}", commonFilmDtos.size(), userId, friendId);
         return commonFilmDtos;
     }
+    
     @GetMapping("/director/{directorId}")
     public List<FilmDto> getFilmsByDirector(@PathVariable int directorId,
                                             @RequestParam(name = "sortBy") String sortBy) {
