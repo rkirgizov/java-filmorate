@@ -94,4 +94,10 @@ public class FilmController {
         log.info("Получен запрос GET /films/search с параметрами query={}, by={}", query, by);
         return filmService.searchFilms(query, by);
     }
+
+    @DeleteMapping("/{filmId}")
+    public void removeFilm(@PathVariable Integer filmId) {
+        log.debug("Получен запрос DELETE /films/{} для удаления фильма", filmId);
+        filmService.removeFilm(filmId);
+    }
 }

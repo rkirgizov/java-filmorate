@@ -46,6 +46,11 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
             LEFT JOIN _like l ON f.id = l.film_id
             """;
 
+    private static final String DELETE_FILM_QUERY = "DELETE FROM _film WHERE id = ?";
+    private static final String DELETE_FILM_GENRES_QUERY = "DELETE FROM _film_genre WHERE film_id = ?";
+    private static final String DELETE_FILM_LIKES_QUERY = "DELETE FROM _like WHERE film_id = ?";
+    private static final String DELETE_FILM_DIRECTORS_QUERY = "DELETE FROM _film_director WHERE film_id = ?";
+
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
     }
@@ -226,5 +231,17 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         sqlBuilder.append(" GROUP BY f.id ORDER BY likes_count DESC");
 
         return findMany(sqlBuilder.toString(), params.toArray());
+    }
+
+    @Override
+    public void deleteFilm(int filmId) {
+        // Удаляем связи фильма сначала
+        delete(DELETE_FILM_GENRES_QUERY, filmId);
+        delete(DELETE_FILM_LIKES_QUERY, filmId);
+        delete(DELETE_FILM_DIRECTORS_QUERY, filmId);
+
+        // Затем удаляем сам фильм
+        delete(DELETE_FILM_QUERY, filmId);
+        log.debug("Фильм с id = {} удален", filmId);
     }
 }
