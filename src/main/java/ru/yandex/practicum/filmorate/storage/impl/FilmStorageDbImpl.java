@@ -196,4 +196,33 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         log.debug("Добавление режиссера {} к фильму {}", directorId, filmId);
         insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
     }
+
+    @Override
+    public List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector) {
+        StringBuilder sqlBuilder = new StringBuilder("SELECT DISTINCT f.* FROM _film f ");
+        List<Object> params = new ArrayList<>();
+
+        if (searchByDirector) {
+            sqlBuilder.append("JOIN _film_director fd ON f.id = fd.film_id ");
+            sqlBuilder.append("JOIN _director d ON fd.director_id = d.id ");
+        }
+
+        sqlBuilder.append("WHERE ");
+
+        List<String> conditions = new ArrayList<>();
+        if (searchByTitle) {
+            conditions.add("LOWER(f.name) LIKE ?");
+            params.add("%" + query + "%");
+        }
+
+        if (searchByDirector) {
+            conditions.add("LOWER(d.name) LIKE ?");
+            params.add("%" + query + "%");
+        }
+
+        sqlBuilder.append(String.join(" OR ", conditions));
+        sqlBuilder.append(" ORDER BY (SELECT COUNT(*) FROM _like l WHERE l.film_id = f.id) DESC");
+
+        return findMany(sqlBuilder.toString(), params.toArray());
+    }
 }

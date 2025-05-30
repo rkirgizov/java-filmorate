@@ -86,4 +86,12 @@ public class FilmController {
         log.info("Возвращен список из {} общих фильмов для пользователей {} и {}", commonFilmDtos.size(), userId, friendId);
         return commonFilmDtos;
     }
+
+    @GetMapping("/search")
+    public List<FilmDto> searchFilms(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "title,director") List<String> by) {
+        log.info("Получен запрос GET /films/search с параметрами query={}, by={}", query, by);
+        return filmService.searchFilms(query, by);
+    }
 }
