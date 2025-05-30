@@ -57,7 +57,7 @@ public class FilmService {
 
     public FilmDto updateFilm(int filmId, FilmRequest filmRequest) {
         Film filmForUpdate = filmStorage.findFilmById(filmId)
-                .map(film -> FilmValidator.validateFilmRequestForUpdate(film, filmRequest, mpaStorage, genreStorage))
+                .map(film -> FilmValidator.validateFilmRequestForUpdate(film, filmRequest, mpaStorage, genreStorage, directorStorage))
                 .map(film -> FilmMapper.mapToFilm(filmRequest))
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
         filmForUpdate.setId(filmId);

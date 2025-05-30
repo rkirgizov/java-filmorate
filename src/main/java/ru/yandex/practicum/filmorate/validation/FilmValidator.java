@@ -68,7 +68,7 @@ public final class FilmValidator {
         return filmRequest;
     }
 
-    public static FilmRequest validateFilmRequestForUpdate(Film film, FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage) {
+    public static FilmRequest validateFilmRequestForUpdate(Film film, FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage) {
         if (hasNoName(filmRequest)) {
             filmRequest.setName(film.getName());
         }
@@ -106,6 +106,17 @@ public final class FilmValidator {
             filmRequest.setGenres(genres);
         } else {
             validateGenre(filmRequest.getGenres(), genreStorage);
+        }
+
+        if (hasNoDirector(filmRequest)) {
+            List<Director> directors = film.getDirectors().stream()
+                    .map(directorStorage::findDirectorById)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+            filmRequest.setDirectors(directors);
+        } else {
+            validateDirectors(filmRequest.getDirectors(), directorStorage);
         }
 
         return filmRequest;
