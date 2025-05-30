@@ -139,6 +139,7 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     public int countLikes(int filmId) {
         return jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
     }
+
     @Override
     public List<Film> findCommonFilms(int userId, int friendId) {
         log.debug("Поиск общих фильмов в БД для пользователей {} и {}", userId, friendId);

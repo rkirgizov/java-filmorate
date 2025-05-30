@@ -8,12 +8,11 @@ import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.storage.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.GenreStorage;
-import ru.yandex.practicum.filmorate.storage.MpaStorage;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
+import ru.yandex.practicum.filmorate.storage.*;
 import ru.yandex.practicum.filmorate.validation.FilmValidator;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,23 +53,19 @@ public class FilmService {
 
     public FilmDto createFilm(FilmRequest filmRequest) {
         log.info("Создание фильма: {}", filmRequest);
-        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage);
         FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage, directorStorage);
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
-        return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage);
+        return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
     }
 
     public FilmDto updateFilm(int filmId, FilmRequest filmRequest) {
         log.info("Обновление фильма с id {}: {}", filmId, filmRequest);
         Film existingFilm = filmStorage.findFilmById(filmId)
-        Film filmForUpdate = filmStorage.findFilmById(filmId)
-                .map(film -> FilmValidator.validateFilmRequestForUpdate(film, filmRequest, mpaStorage, genreStorage, directorStorage))
-                .map(film -> FilmMapper.mapToFilm(filmRequest))
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
 
-        FilmRequest validatedFilmRequestForUpdate = FilmValidator.validateFilmRequestForUpdate(existingFilm, filmRequest, mpaStorage, genreStorage);
+        FilmRequest validatedFilmRequestForUpdate = FilmValidator.validateFilmRequestForUpdate(existingFilm, filmRequest, mpaStorage, genreStorage, directorStorage);
         Film filmToPersist = FilmMapper.mapToFilm(validatedFilmRequestForUpdate);
         filmToPersist.setId(filmId);
 
@@ -117,7 +112,7 @@ public class FilmService {
         List<Film> commonFilms = filmStorage.findCommonFilms(userId, friendId);
 
         List<FilmDto> commonFilmDtos = commonFilms.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .collect(Collectors.toList());
 
         log.info("Найдено {} общих фильмов для пользователей {} и {}", commonFilmDtos.size(), userId, friendId);

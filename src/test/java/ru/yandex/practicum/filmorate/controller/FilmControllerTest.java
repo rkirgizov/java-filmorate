@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
         UserStorageDbImpl.class,
         DirectorStorageDbImpl.class,
         DirectorRowMapper.class,
-        UserRowMapper.class})
         UserRowMapper.class,
         FilmService.class,
         UserService.class
@@ -125,7 +124,6 @@ public class FilmControllerTest {
     @Test
     void testCreateFilmWorksCorrectly() {
         FilmDto createdFilmDto = filmController.createFilm(filmRequest);
-        FilmDto requestFilmDto = FilmMapper.mapToFilmDto(FilmMapper.mapToFilm(filmRequest), mpaStorage, genreStorage);
         FilmDto requestFilmDto =  FilmMapper.mapToFilmDto(FilmMapper.mapToFilm(filmRequest), mpaStorage, genreStorage, directorStorage);
         requestFilmDto.setId(createdFilmDto.getId());
         assertEquals(requestFilmDto, createdFilmDto);
@@ -165,8 +163,6 @@ public class FilmControllerTest {
     @Test
     public void testUpdateNonExistingFilmWorksCorrectly() {
         FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("NonExistingFilm", "NonExistingFilmDescription",
-                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
-        assertThrows(NotFoundException.class, () -> filmController.updateFilm(filmRequestUpdate));
                 90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1, List.of(new Director()));
         assertThrows(NotFoundException.class, () -> filmController.updateFilm(filmRequestUpdate),
                 "Ожидается исключение NotFoundException при попытке обновления несуществующего фильма");
@@ -191,23 +187,13 @@ public class FilmControllerTest {
     @Test
     public void testGetPopularFilmsWorksCorrectly() {
         FilmRequest filmRequest2 = new FilmRequest("Test Film 2", "Description of Test Film 2",
-                120, LocalDate.of(2022, 1, 1), null, null);
-        Mpa mpa2 = new Mpa();
-        mpa2.setId(2);
-        filmRequest2.setMpa(mpa2);
-        Genre genre2 = new Genre();
-        genre2.setId(2);
-        filmRequest2.setGenres(List.of(genre2));
-
                 120, LocalDate.of(2022, 1, 1), null, null, null);
         Mpa mpa = new Mpa();
         mpa.setId(2);
         filmRequest2.setMpa(mpa);
-
         Genre genre = new Genre();
         genre.setId(2);
         filmRequest2.setGenres(List.of(genre));
-
         Director director = new Director();
         director.setId(2);
         director.setName("Christopher Nolan");
@@ -215,13 +201,6 @@ public class FilmControllerTest {
         filmRequest2.setDirectors(List.of(director));
 
         FilmRequest filmRequest3 = new FilmRequest("Test Film 3", "Description of Test Film 3",
-                120, LocalDate.of(2022, 1, 1), null, null);
-        Mpa mpa3 = new Mpa();
-        mpa3.setId(2);
-        filmRequest3.setMpa(mpa3);
-        Genre genre3 = new Genre();
-        genre3.setId(2);
-        filmRequest3.setGenres(List.of(genre3));
                 120, LocalDate.of(2022, 1, 1), null, null, null);
         mpa = new Mpa();
         mpa.setId(2);
@@ -229,7 +208,6 @@ public class FilmControllerTest {
         genre = new Genre();
         genre.setId(2);
         filmRequest3.setGenres(List.of(genre));
-
         director = new Director();
         director.setId(3);
         director.setName("Ridley Scott");
@@ -242,51 +220,13 @@ public class FilmControllerTest {
         UserController userController = new UserController(new UserService(userStorage));
         UserRequest userRequest = new UserRequest("testLogin1", "testLogin1@example.com", "testName1", LocalDate.of(2000, 1, 1));
         userController.createUser(userRequest);
-
-        FilmDto createdFilm1 = filmController.createFilm(filmRequest);
-        FilmDto createdFilm2 = filmController.createFilm(filmRequest2);
-        FilmDto createdFilm3 = filmController.createFilm(filmRequest3);
-
-        UserRequest userRequest1 = new UserRequest("testLogin1", "testLogin1@example.com", "testName1", LocalDate.of(2000, 1, 1));
-        UserDto createdUser1 = userController.createUser(userRequest1);
-
-        List<FilmDto> popularFilmsInitial = filmController.getPopularFilms(10);
-        assertEquals(3, popularFilmsInitial.size());
-        Set<Integer> initialFilmIds = popularFilmsInitial.stream().map(FilmDto::getId).collect(Collectors.toSet());
-        Set<Integer> createdFilmIds = Set.of(createdFilm1.getId(), createdFilm2.getId(), createdFilm3.getId());
-        assertEquals(createdFilmIds, initialFilmIds);
-
-        filmController.addLikeToFilm(createdFilm1.getId(), createdUser1.getId());
-        filmController.addLikeToFilm(createdFilm2.getId(), createdUser1.getId());
-        filmController.addLikeToFilm(createdFilm3.getId(), createdUser1.getId());
-
-        List<FilmDto> popularFilmsAfterLikes = filmController.getPopularFilms(10);
-        assertEquals(3, popularFilmsAfterLikes.size());
-        Set<Integer> afterLikeFilmIds = popularFilmsAfterLikes.stream().map(FilmDto::getId).collect(Collectors.toSet());
-        assertEquals(createdFilmIds, afterLikeFilmIds);
-
-        UserRequest userRequest2 = new UserRequest("testLogin2", "testLogin2@example.com", "testName2", LocalDate.of(2001, 1, 1));
-        UserDto createdUser2 = userController.createUser(userRequest2);
-        filmController.addLikeToFilm(createdFilm2.getId(), createdUser2.getId());
-
-        List<FilmDto> popularFilmsSorted = filmController.getPopularFilms(10);
-        assertEquals(3, popularFilmsSorted.size());
-        assertEquals(createdFilm2.getId(), popularFilmsSorted.get(0).getId());
-        Set<Integer> secondAndThirdFilmIds = Set.of(popularFilmsSorted.get(1).getId(), popularFilmsSorted.get(2).getId());
-        Set<Integer> expectedSecondAndThirdFilmIds = Set.of(createdFilm1.getId(), createdFilm3.getId());
-        assertEquals(expectedSecondAndThirdFilmIds, secondAndThirdFilmIds);
-
-        filmController.removeLikeFromFilm(createdFilm1.getId(), createdUser1.getId());
-
-        List<FilmDto> popularFilmsAfterRemove = filmController.getPopularFilms(10);
-        assertEquals(3, popularFilmsAfterRemove.size());
-        assertEquals(createdFilm2.getId(), popularFilmsAfterRemove.get(0).getId());
-        assertEquals(createdFilm3.getId(), popularFilmsAfterRemove.get(1).getId());
-        assertEquals(createdFilm1.getId(), popularFilmsAfterRemove.get(2).getId());
-
-        List<FilmDto> popularFilmsLimited = filmController.getPopularFilms(2);
-        assertEquals(2, popularFilmsLimited.size());
-        assertEquals(createdFilm2.getId(), popularFilmsLimited.get(0).getId());
-        assertEquals(createdFilm3.getId(), popularFilmsLimited.get(1).getId());
+        assertEquals(0, filmController.getPopularFilms(10).size(), "Ожидается, что список пустой при отсутствии лайков");
+        filmController.addLikeToFilm(1, 1);
+        filmController.addLikeToFilm(2, 1);
+        filmController.addLikeToFilm(3, 1);
+        filmController.getPopularFilms(10);
+        assertEquals(3, filmController.getPopularFilms(10).size(), "Ожидается, что в списке теперь есть 3 фильма");
+        filmController.removeLikeFromFilm(1, 1);
+        assertEquals(2, filmController.getPopularFilms(10).size(), "Ожидается, что в списке осталось 2 фильма");
     }
 }
