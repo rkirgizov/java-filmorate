@@ -76,7 +76,6 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 film.getDuration(),
                 film.getReleaseDate(),
                 film.getMpa().getId(),
-                film.getDirectors(),
                 filmId);
         delete(CLEAR_FILM_GENRE_QUERY, filmId);
         film.getGenres().forEach(genreId -> {
