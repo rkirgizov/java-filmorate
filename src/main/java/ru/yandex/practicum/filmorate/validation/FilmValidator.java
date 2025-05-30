@@ -122,10 +122,6 @@ public final class FilmValidator {
         return filmRequest;
     }
 
-    /**
-     * Проверка наличия параметров в реквесте
-     */
-
     public static boolean hasNoName(FilmRequest request) {
         return request.getName() == null || request.getName().isBlank();
     }
