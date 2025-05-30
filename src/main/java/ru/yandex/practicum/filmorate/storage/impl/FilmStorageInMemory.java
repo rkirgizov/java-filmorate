@@ -67,6 +67,10 @@ public class FilmStorageInMemory implements FilmStorage {
         return ++currentMaxId;
     }
 
+    @Override
+    public List<Film> findCommonFilms(int userId, int friendId) {
+        log.warn("In-memory FilmStorage does not fully support common films logic. Returning empty list.");
 
-
+        return new ArrayList<>();
+    }
 }
