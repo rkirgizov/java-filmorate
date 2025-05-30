@@ -48,7 +48,7 @@ public class FilmService {
     }
 
     public FilmDto createFilm(FilmRequest filmRequest) {
-        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage, directorStorage );
+        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage, directorStorage);
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
