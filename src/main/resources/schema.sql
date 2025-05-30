@@ -10,6 +10,8 @@ DROP TABLE IF EXISTS _like CASCADE;
 DROP TABLE IF EXISTS _mpa CASCADE;
 DROP TABLE IF EXISTS _film_genre CASCADE;
 DROP TABLE IF EXISTS _genre CASCADE;
+DROP TABLE IF EXISTS _film_director CASCADE;
+DROP TABLE IF EXISTS _director CASCADE;
 
 CREATE TABLE IF NOT EXISTS _user (
     id int PRIMARY KEY AUTO_INCREMENT,
@@ -61,6 +63,19 @@ CREATE TABLE IF NOT EXISTS _genre (
     id int PRIMARY KEY AUTO_INCREMENT,
     name varchar(20) NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS _director (
+    id int PRIMARY KEY AUTO_INCREMENT,
+    name varchar(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS _film_director (
+    id int PRIMARY KEY AUTO_INCREMENT,
+    film_id INT NOT NULL,
+    director_id INT NOT NULL
+);
+
+
 
 --ALTER TABLE _user_friend ADD CONSTRAINT IF NOT EXISTS fk_user_friend_user_id FOREIGN KEY (user_id)
 --REFERENCES _user (id);

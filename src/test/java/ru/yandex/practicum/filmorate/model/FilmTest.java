@@ -12,19 +12,10 @@ import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.mapper.FilmRowMapper;
-import ru.yandex.practicum.filmorate.mapper.GenreRowMapper;
-import ru.yandex.practicum.filmorate.mapper.MpaRowMapper;
-import ru.yandex.practicum.filmorate.mapper.UserRowMapper;
+import ru.yandex.practicum.filmorate.mapper.*;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.storage.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.GenreStorage;
-import ru.yandex.practicum.filmorate.storage.MpaStorage;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
-import ru.yandex.practicum.filmorate.storage.impl.FilmStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.GenreStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.MpaStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.UserStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.*;
+import ru.yandex.practicum.filmorate.storage.impl.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -41,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
         GenreStorageDbImpl.class,
         GenreRowMapper.class,
         UserStorageDbImpl.class,
+        DirectorStorageDbImpl.class,
+        DirectorRowMapper.class,
         UserRowMapper.class})
 public class FilmTest {
 
@@ -52,6 +45,9 @@ public class FilmTest {
 
     @Autowired
     private GenreStorage genreStorage;
+
+    @Autowired
+    private DirectorStorage directorStorage;
 
     @Autowired
     private UserStorage userStorage;
@@ -66,9 +62,9 @@ public class FilmTest {
     public void setUp() {
         JdbcTestUtils.deleteFromTables(jdbcTemplate, "_user");
         jdbcTemplate.execute("ALTER TABLE _user ALTER COLUMN id RESTART WITH 1");
-        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, userStorage));
+        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, directorStorage, userStorage));
         filmRequest = new FilmRequest("Test Film", "Description of Test Film",
-                120, LocalDate.of(2022, 1, 1), new Mpa(), List.of(new Genre()));
+                120, LocalDate.of(2022, 1, 1), new Mpa(), List.of(new Genre()), List.of(new Director()));
     }
 
     @Test

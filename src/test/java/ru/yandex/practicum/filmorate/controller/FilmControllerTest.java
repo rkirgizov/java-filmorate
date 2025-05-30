@@ -11,18 +11,13 @@ import org.springframework.test.jdbc.JdbcTestUtils;
 import ru.yandex.practicum.filmorate.dto.*;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.*;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.GenreStorage;
-import ru.yandex.practicum.filmorate.storage.MpaStorage;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
-import ru.yandex.practicum.filmorate.storage.impl.FilmStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.GenreStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.MpaStorageDbImpl;
-import ru.yandex.practicum.filmorate.storage.impl.UserStorageDbImpl;
+import ru.yandex.practicum.filmorate.storage.*;
+import ru.yandex.practicum.filmorate.storage.impl.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,6 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
         GenreStorageDbImpl.class,
         GenreRowMapper.class,
         UserStorageDbImpl.class,
+        DirectorStorageDbImpl.class,
+        DirectorRowMapper.class,
         UserRowMapper.class})
 public class FilmControllerTest {
 
@@ -51,6 +48,9 @@ public class FilmControllerTest {
 
     @Autowired
     private GenreStorage genreStorage;
+
+    @Autowired
+    private DirectorStorage directorStorage;
 
     @Autowired
     private UserStorage userStorage;
@@ -68,15 +68,19 @@ public class FilmControllerTest {
         jdbcTemplate.execute("ALTER TABLE _like ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER TABLE _user ALTER COLUMN id RESTART WITH 1");
 
-        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, userStorage));
+        filmController = new FilmController(new FilmService(filmStorage, mpaStorage, genreStorage, directorStorage, userStorage));
         filmRequest = new FilmRequest("Test Film", "Description of Test Film",
-                120, LocalDate.of(2022, 1, 1), null, null);
+                120, LocalDate.of(2022, 1, 1), null, null, null);
         Mpa mpa = new Mpa();
         mpa.setId(1);
         filmRequest.setMpa(mpa);
         Genre genre = new Genre();
         genre.setId(1);
         filmRequest.setGenres(List.of(genre));
+        Director director = new Director();
+        director.setId(1);
+        director.setName("Quentin Tarantino");
+        filmRequest.setDirectors(List.of(director));
     }
 
     @Test
@@ -85,13 +89,17 @@ public class FilmControllerTest {
         assertEquals(1, filmController.findAll().size(), "Ожидается один найденный фильм");
 
         FilmRequest filmRequest2 = new FilmRequest("Test Film 2", "Description of Test Film 2",
-                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()));
+                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), List.of(new Director()));
         Mpa mpa = new Mpa();
         mpa.setId(2);
         filmRequest2.setMpa(mpa);
         Genre genre = new Genre();
         genre.setId(2);
         filmRequest2.setGenres(List.of(genre));
+        Director director = new Director();
+        director.setName("Christopher Nolan");
+        director.setId(2);
+        filmRequest2.setDirectors(List.of(director));
         filmController.createFilm(filmRequest2);
         assertEquals(2, filmController.findAll().size(), "Ожидается два найденных фильма");
     }
@@ -99,7 +107,7 @@ public class FilmControllerTest {
     @Test
     void testCreateFilmWorksCorrectly() {
         FilmDto createdFilmDto = filmController.createFilm(filmRequest);
-        FilmDto requestFilmDto =  FilmMapper.mapToFilmDto(FilmMapper.mapToFilm(filmRequest), mpaStorage, genreStorage);
+        FilmDto requestFilmDto =  FilmMapper.mapToFilmDto(FilmMapper.mapToFilm(filmRequest), mpaStorage, genreStorage, directorStorage);
         requestFilmDto.setId(createdFilmDto.getId());
         assertEquals(requestFilmDto, createdFilmDto, "Ожидается создание фильма с корректными данными");
     }
@@ -107,15 +115,22 @@ public class FilmControllerTest {
     @Test
     public void testUpdateExistingFilmWorksCorrectly() {
         filmController.createFilm(filmRequest);
-        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("Test Film Updated", "Description of Test Film Updated", 90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
+        FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("Test Film Updated", "Description of Test Film Updated", 90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1, List.of(new Director()));
         Mpa mpaUpdate = new Mpa();
         mpaUpdate.setId(2);
         mpaUpdate.setName("PG");
         filmRequestUpdate.setMpa(mpaUpdate);
+
         Genre genreUpdate = new Genre();
         genreUpdate.setId(2);
         genreUpdate.setName("Драма");
         filmRequestUpdate.setGenres(List.of(genreUpdate));
+
+        Director directorUpdate = new Director();
+        directorUpdate.setName("Christopher Nolan");
+        directorUpdate.setId(2);
+        filmRequestUpdate.setDirectors(List.of(directorUpdate));
+
         filmController.updateFilm(filmRequestUpdate);
         assertThat(filmController.findFilmById(1))
                 .as("Ожидается, что фильм с id 1 корректно обновлен")
@@ -131,7 +146,7 @@ public class FilmControllerTest {
     @Test
     public void testUpdateNonExistingFilmWorksCorrectly() {
         FilmRequestUpdate filmRequestUpdate = new FilmRequestUpdate("NonExistingFilm", "NonExistingFilmDescription",
-                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1);
+                90, LocalDate.of(2020, 1, 1), new Mpa(), List.of(new Genre()), 1, List.of(new Director()));
         assertThrows(NotFoundException.class, () -> filmController.updateFilm(filmRequestUpdate),
                 "Ожидается исключение NotFoundException при попытке обновления несуществующего фильма");
     }
@@ -156,21 +171,34 @@ public class FilmControllerTest {
     @Test
     public void testGetPopularFilmsWorksCorrectly() {
         FilmRequest filmRequest2 = new FilmRequest("Test Film 2", "Description of Test Film 2",
-                120, LocalDate.of(2022, 1, 1), null, null);
+                120, LocalDate.of(2022, 1, 1), null, null, null);
         Mpa mpa = new Mpa();
         mpa.setId(2);
         filmRequest2.setMpa(mpa);
+
         Genre genre = new Genre();
         genre.setId(2);
         filmRequest2.setGenres(List.of(genre));
+
+        Director director = new Director();
+        director.setId(2);
+        director.setName("Christopher Nolan");
+        filmRequest2.setDirectors(List.of(director));
+
         FilmRequest filmRequest3 = new FilmRequest("Test Film 3", "Description of Test Film 3",
-                120, LocalDate.of(2022, 1, 1), null, null);
+                120, LocalDate.of(2022, 1, 1), null, null, null);
         mpa = new Mpa();
         mpa.setId(2);
         filmRequest3.setMpa(mpa);
         genre = new Genre();
         genre.setId(2);
         filmRequest3.setGenres(List.of(genre));
+
+        director = new Director();
+        director.setId(3);
+        director.setName("Ridley Scott");
+        filmRequest3.setDirectors(List.of(director));
+
         filmController.createFilm(filmRequest);
         filmController.createFilm(filmRequest2);
         filmController.createFilm(filmRequest3);

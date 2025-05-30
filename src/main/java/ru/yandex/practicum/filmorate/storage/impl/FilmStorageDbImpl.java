@@ -31,6 +31,8 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 ORDER BY COUNT(l.user_id) DESC
                 LIMIT ?
             """;
+    private static final String GET_FILMS_BY_DIRECTOR_SQL = " SELECT f.* FROM _film f JOIN _film_director fd ON f.id = fd.film_id WHERE fd.director_id = ? ";
+    private static final String COUNT_LIKES_SQL = "SELECT COUNT(*) FROM _like WHERE film_id = ?";
 
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
@@ -74,6 +76,7 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 film.getDuration(),
                 film.getReleaseDate(),
                 film.getMpa().getId(),
+                film.getDirectors(),
                 filmId);
         delete(CLEAR_FILM_GENRE_QUERY, filmId);
         film.getGenres().forEach(genreId -> {
@@ -99,4 +102,14 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         return findMany(FIND_POPULAR_QUERY, limit);
     }
 
+
+    @Override
+    public List<Film> getFilmsByDirector(int directorId) {
+        return findMany(GET_FILMS_BY_DIRECTOR_SQL, directorId);
+    }
+
+    @Override
+    public int countLikes(int filmId) {
+        return jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
+    }
 }

@@ -6,7 +6,9 @@ import ru.yandex.practicum.filmorate.dto.FilmDto;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.MpaStorage;
 
@@ -30,10 +32,15 @@ public final class FilmMapper {
                 .toList();
         film.setGenres(genres);
 
+        List<Integer> directors = request.getDirectors().stream()
+                .map(Director::getId)
+                .toList();
+        film.setDirectors(directors);
+
         return film;
     }
 
-    public static FilmDto mapToFilmDto(Film film, MpaStorage mpaStorage, GenreStorage genreStorage) {
+    public static FilmDto mapToFilmDto(Film film, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage) {
         FilmDto dto = new FilmDto();
         dto.setId(film.getId());
         dto.setName(film.getName());
@@ -53,6 +60,12 @@ public final class FilmMapper {
                 .filter(Objects::nonNull)
                 .toList();
         dto.setGenres(genres);
+
+        List<Director> directors = film.getDirectors().stream()
+                .map(directorId -> directorStorage.findDirectorById(directorId).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+        dto.setDirectors(directors);
 
         return dto;
     }
