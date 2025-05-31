@@ -14,6 +14,8 @@ import java.util.*;
 public class FilmStorageInMemory implements FilmStorage {
 
     private final Map<Integer, Film> films = new HashMap<>();
+    private final Map<Integer, Set<Integer>> filmLikes = new HashMap<>();
+    private final Map<Integer, Set<Integer>> filmDirectors = new HashMap<>();
 
     @Override
     public Optional<Film> findFilmById(int filmId) {
@@ -39,6 +41,7 @@ public class FilmStorageInMemory implements FilmStorage {
             oldFilm.setDescription(updatedFilm.getDescription());
             oldFilm.setReleaseDate(updatedFilm.getReleaseDate());
             oldFilm.setDuration(updatedFilm.getDuration());
+            oldFilm.setDirectors(updatedFilm.getDirectors());
             return oldFilm;
         }
         throw new NotFoundException(String.format("Фильм с id = %d  - не найден", updatedFilm.getId()));
@@ -46,10 +49,15 @@ public class FilmStorageInMemory implements FilmStorage {
 
     @Override
     public void addLikeToFilm(Integer filmId, Integer userId) {
+        filmLikes.computeIfAbsent(filmId, k -> new HashSet<>()).add(userId);
     }
 
     @Override
     public void removeLikeFromFilm(Integer filmId, Integer userId) {
+        Set<Integer> likes = filmLikes.get(filmId);
+        if (likes != null) {
+            likes.remove(userId);
+        }
     }
 
     @Override
@@ -70,7 +78,32 @@ public class FilmStorageInMemory implements FilmStorage {
     @Override
     public List<Film> findCommonFilms(int userId, int friendId) {
         log.warn("In-memory FilmStorage does not fully support common films logic. Returning empty list.");
-
         return new ArrayList<>();
     }
+
+    @Override
+    public List<Film> getFilmsByDirector(int directorId) {
+        return films.values().stream()
+                .filter(film -> film.getDirectors() != null && film.getDirectors().contains(directorId))
+                .toList();
+
+    }
+
+    @Override
+    public int countLikes(int filmId) {
+
+        return filmLikes.getOrDefault(filmId, Collections.emptySet()).size();
+    }
+
+    @Override
+    public void deleteDirectorsFromFilm(int filmId) {
+        filmDirectors.remove(filmId);
+    }
+
+    @Override
+    public void addDirectorToFilm(int filmId, int directorId) {
+        filmDirectors.computeIfAbsent(filmId, k -> new HashSet<>()).add(directorId);
+    }
 }
+
+

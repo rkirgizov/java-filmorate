@@ -8,12 +8,11 @@ import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.storage.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.GenreStorage;
-import ru.yandex.practicum.filmorate.storage.MpaStorage;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
+import ru.yandex.practicum.filmorate.storage.*;
 import ru.yandex.practicum.filmorate.validation.FilmValidator;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,12 +23,14 @@ public class FilmService {
     private final FilmStorage filmStorage;
     private final MpaStorage mpaStorage;
     private final GenreStorage genreStorage;
+    private final DirectorStorage directorStorage;
     private final UserStorage userStorage;
 
-    public FilmService(@Qualifier("FilmStorageDbImpl") FilmStorage filmStorage, MpaStorage mpaStorage, GenreStorage genreStorage, @Qualifier("UserStorageDbImpl") UserStorage userStorage) {
+    public FilmService(@Qualifier("FilmStorageDbImpl") FilmStorage filmStorage, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage, @Qualifier("UserStorageDbImpl") UserStorage userStorage) {
         this.filmStorage = filmStorage;
         this.mpaStorage = mpaStorage;
         this.genreStorage = genreStorage;
+        this.directorStorage = directorStorage;
         this.userStorage = userStorage;
 
         checkGenreCount(6);
@@ -39,24 +40,30 @@ public class FilmService {
     public FilmDto findFilmById(int filmId) {
         log.info("Поиск фильма по id: {}", filmId);
         return filmStorage.findFilmById(filmId)
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id = %d не найден", filmId)));
     }
 
     public List<FilmDto> findAll() {
         log.info("Получение всех фильмов");
         return filmStorage.findAllFilms().stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .toList();
     }
 
     public FilmDto createFilm(FilmRequest filmRequest) {
         log.info("Создание фильма: {}", filmRequest);
-        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage);
+        FilmRequest validatedFilmRequest = FilmValidator.validateFilmRequestNew(filmRequest, mpaStorage, genreStorage, directorStorage);
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
-        return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage);
+        if (!validatedFilmRequest.getDirectors().isEmpty()) {
+            filmStorage.deleteDirectorsFromFilm(film.getId());
+            Film finalFilm = film;
+            validatedFilmRequest.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(finalFilm.getId(), director.getId()));
+        }
+
+        return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
     }
 
     public FilmDto updateFilm(int filmId, FilmRequest filmRequest) {
@@ -64,13 +71,19 @@ public class FilmService {
         Film existingFilm = filmStorage.findFilmById(filmId)
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
 
-        FilmRequest validatedFilmRequestForUpdate = FilmValidator.validateFilmRequestForUpdate(existingFilm, filmRequest, mpaStorage, genreStorage);
+        FilmRequest validatedFilmRequestForUpdate = FilmValidator.validateFilmRequestForUpdate(existingFilm, filmRequest, mpaStorage, genreStorage, directorStorage);
         Film filmToPersist = FilmMapper.mapToFilm(validatedFilmRequestForUpdate);
         filmToPersist.setId(filmId);
 
         Film filmUpdated = filmStorage.updateFilm(filmToPersist);
 
-        return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage);
+        // Сохраняем режиссёров
+        if (!validatedFilmRequestForUpdate.getDirectors().isEmpty()) {
+            filmStorage.deleteDirectorsFromFilm(filmId); // очищаем старые данные
+            validatedFilmRequestForUpdate.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(filmId, director.getId()));
+        }
+
+        return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage, directorStorage);
     }
 
 
@@ -96,7 +109,7 @@ public class FilmService {
         log.info("Получение {} самых популярных фильмов", limit);
         List<Film> allFilms = filmStorage.getPopularFilms(limit);
         return allFilms.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .toList();
     }
 
@@ -111,7 +124,7 @@ public class FilmService {
         List<Film> commonFilms = filmStorage.findCommonFilms(userId, friendId);
 
         List<FilmDto> commonFilmDtos = commonFilms.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .collect(Collectors.toList());
 
         log.info("Найдено {} общих фильмов для пользователей {} и {}", commonFilmDtos.size(), userId, friendId);
@@ -133,4 +146,32 @@ public class FilmService {
         }
         log.info("Проверка количества рейтингов MPA пройдена успешно.");
     }
+
+    public List<FilmDto> getFilmsByDirectorSorted(int directorId, String sortBy) {
+        List<Film> films = filmStorage.getFilmsByDirector(directorId);
+
+        if (films.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        switch (sortBy.toLowerCase()) {
+            case "year":
+                films.sort(Comparator.comparing(Film::getReleaseDate));
+                break;
+            case "likes":
+                films.sort((f1, f2) -> {
+                    int likes2 = filmStorage.countLikes(f2.getId());
+                    int likes1 = filmStorage.countLikes(f1.getId());
+                    return Integer.compare(likes2, likes1); // по убыванию
+                });
+                break;
+            default:
+                throw new IllegalArgumentException("Неподдерживаемый параметр сортировки: " + sortBy);
+        }
+
+        return films.stream()
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .toList();
+    }
+
 }

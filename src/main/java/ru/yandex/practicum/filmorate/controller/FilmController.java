@@ -64,6 +64,12 @@ public class FilmController {
         return filmService.getPopularFilms(limit);
     }
 
+    @GetMapping("/director/{directorId}")
+    public List<FilmDto> getFilmsByDirector(@PathVariable int directorId,
+                                            @RequestParam(name = "sortBy") String sortBy) {
+        return filmService.getFilmsByDirectorSorted(directorId, sortBy);
+    }
+
     @GetMapping("/common")
     @ResponseStatus(HttpStatus.OK)
     public List<FilmDto> getCommonFilms(

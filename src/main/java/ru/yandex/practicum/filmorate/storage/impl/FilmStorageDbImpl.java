@@ -27,9 +27,12 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 FROM _film f
                 LEFT JOIN _like l ON f.id = l.film_id
                 GROUP BY f.id
-                ORDER BY COUNT(l.user_id) DESC -- Сортировка по популярности
+                HAVING COUNT(l.user_id) > 0
+                ORDER BY COUNT(l.user_id) DESC
                 LIMIT ?
             """;
+    private static final String GET_FILMS_BY_DIRECTOR_SQL = " SELECT f.* FROM _film f JOIN _film_director fd ON f.id = fd.film_id WHERE fd.director_id = ? ";
+    private static final String COUNT_LIKES_SQL = "SELECT COUNT(*) FROM _like WHERE film_id = ?";
     private static final String FIND_COMMON_FILMS_QUERY = """
                 SELECT f.*
                 FROM _film f
@@ -39,6 +42,9 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                 GROUP BY f.id -- Группируем по фильму
                 ORDER BY COUNT(all_likes.user_id) DESC -- Сортируем по общему количеству лайков (популярности)
             """;
+
+    private static final String DELETE_DIRECTORS_FROM_FILM = "DELETE FROM _film_director WHERE film_id = ?";
+    private static final String INSERT_DIRECTOR_TO_FILM = "INSERT INTO _film_director (film_id, director_id) VALUES (?, ?)";
 
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
@@ -126,11 +132,30 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         return findMany(FIND_POPULAR_QUERY, limit);
     }
 
+
+    @Override
+    public List<Film> getFilmsByDirector(int directorId) {
+        return findMany(GET_FILMS_BY_DIRECTOR_SQL, directorId);
+    }
+
+    @Override
+    public int countLikes(int filmId) {
+        return jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
+    }
+
     @Override
     public List<Film> findCommonFilms(int userId, int friendId) {
         log.debug("Поиск общих фильмов в БД для пользователей {} и {}", userId, friendId);
         List<Film> commonFilms = findMany(FIND_COMMON_FILMS_QUERY, userId, friendId);
         log.info("Найдено {} общих фильмов для пользователей {} и {}", commonFilms.size(), userId, friendId);
         return commonFilms;
+    }
+
+    public void deleteDirectorsFromFilm(int filmId) {
+        delete(DELETE_DIRECTORS_FROM_FILM, filmId);
+    }
+
+    public void addDirectorToFilm(int filmId, int directorId) {
+        insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
     }
 }
