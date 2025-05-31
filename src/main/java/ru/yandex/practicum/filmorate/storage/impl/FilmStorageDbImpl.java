@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.BaseStorage;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,29 +23,29 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     private static final String UPDATE_QUERY = "UPDATE _film SET name = ?, description = ?, duration = ?, release_dt = ?, mpa_id = ? WHERE id = ?";
     private static final String INSERT_LIKE_QUERY = "INSERT INTO _like (user_id, film_id) VALUES (?,?)";
     private static final String DELETE_LIKE_QUERY = "DELETE FROM _like WHERE user_id = ? AND film_id = ?";
-    private static final String FIND_POPULAR_QUERY = """
-                SELECT f.*
-                FROM _film f
-                LEFT JOIN _like l ON f.id = l.film_id
-                GROUP BY f.id
-                HAVING COUNT(l.user_id) > 0
-                ORDER BY COUNT(l.user_id) DESC
-                LIMIT ?
-            """;
+
+
     private static final String GET_FILMS_BY_DIRECTOR_SQL = " SELECT f.* FROM _film f JOIN _film_director fd ON f.id = fd.film_id WHERE fd.director_id = ? ";
     private static final String COUNT_LIKES_SQL = "SELECT COUNT(*) FROM _like WHERE film_id = ?";
     private static final String FIND_COMMON_FILMS_QUERY = """
                 SELECT f.*
                 FROM _film f
-                JOIN _like l1 ON f.id = l1.film_id AND l1.user_id = ? -- Фильмы, лайкнутые первым пользователем
-                JOIN _like l2 ON f.id = l2.film_id AND l2.user_id = ? -- Фильмы, лайкнутые вторым пользователем
-                LEFT JOIN _like all_likes ON f.id = all_likes.film_id -- Соединяем еще раз для подсчета общего количества лайков
-                GROUP BY f.id -- Группируем по фильму
-                ORDER BY COUNT(all_likes.user_id) DESC -- Сортируем по общему количеству лайков (популярности)
+                JOIN _like l1 ON f.id = l1.film_id AND l1.user_id = ?
+                JOIN _like l2 ON f.id = l2.film_id AND l2.user_id = ?
+                LEFT JOIN _like all_likes ON f.id = all_likes.film_id
+                GROUP BY f.id
+                ORDER BY COUNT(all_likes.user_id) DESC
             """;
 
     private static final String DELETE_DIRECTORS_FROM_FILM = "DELETE FROM _film_director WHERE film_id = ?";
     private static final String INSERT_DIRECTOR_TO_FILM = "INSERT INTO _film_director (film_id, director_id) VALUES (?, ?)";
+
+    private static final String BASE_POPULAR_QUERY = """
+            SELECT f.*
+            FROM _film f
+            LEFT JOIN _like l ON f.id = l.film_id
+            """;
+
 
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
@@ -127,19 +128,52 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     }
 
     @Override
-    public List<Film> getPopularFilms(Integer limit) {
-        log.debug("Получение {} самых популярных фильмов из БД", limit);
-        return findMany(FIND_POPULAR_QUERY, limit);
+    public List<Film> getPopularFilms(int count, Integer genreId, Integer year) {
+        log.debug("Получение {} самых популярных фильмов из БД, фильтрация: genreId={}, year={}", count, genreId, year);
+
+        StringBuilder sqlBuilder = new StringBuilder(BASE_POPULAR_QUERY);
+        List<Object> params = new ArrayList<>();
+        List<String> whereClauses = new ArrayList<>();
+
+        if (genreId != null) {
+            sqlBuilder.append(" JOIN _film_genre fg ON f.id = fg.film_id");
+            whereClauses.add("fg.genre_id = ?");
+            params.add(genreId);
+        }
+
+        if (year != null) {
+            whereClauses.add("EXTRACT(YEAR FROM f.release_dt) = ?");
+            params.add(year);
+        }
+
+        if (!whereClauses.isEmpty()) {
+            sqlBuilder.append(" WHERE ").append(String.join(" AND ", whereClauses));
+        }
+
+        sqlBuilder.append(" GROUP BY f.id");
+
+        sqlBuilder.append(" ORDER BY COUNT(l.user_id) DESC");
+
+        sqlBuilder.append(" LIMIT ?");
+        params.add(count);
+
+        String finalSql = sqlBuilder.toString();
+        log.debug("Executing popular films query: {}", finalSql);
+        log.debug("With parameters: {}", params);
+
+        return findMany(finalSql, params.toArray());
     }
 
 
     @Override
     public List<Film> getFilmsByDirector(int directorId) {
+        log.debug("Получение фильмов режиссера {} из БД", directorId);
         return findMany(GET_FILMS_BY_DIRECTOR_SQL, directorId);
     }
 
     @Override
     public int countLikes(int filmId) {
+        log.debug("Подсчет лайков для фильма с id {}", filmId);
         return jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
     }
 
@@ -151,11 +185,15 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         return commonFilms;
     }
 
+    @Override
     public void deleteDirectorsFromFilm(int filmId) {
+        log.debug("Удаление всех режиссеров для фильма с id {}", filmId);
         delete(DELETE_DIRECTORS_FROM_FILM, filmId);
     }
 
+    @Override
     public void addDirectorToFilm(int filmId, int directorId) {
+        log.debug("Добавление режиссера {} к фильму {}", directorId, filmId);
         insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
     }
 }

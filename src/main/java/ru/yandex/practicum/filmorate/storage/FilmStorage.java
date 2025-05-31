@@ -18,7 +18,7 @@ public interface FilmStorage {
 
     void removeLikeFromFilm(Integer filmId, Integer userId);
 
-    List<Film> getPopularFilms(Integer userId);
+    List<Film> getPopularFilms(int count, Integer genreId, Integer year);
 
     List<Film> findCommonFilms(int userId, int friendId);
 
@@ -26,7 +26,7 @@ public interface FilmStorage {
 
     int countLikes(int filmId);
 
-    public void deleteDirectorsFromFilm(int filmId);
+    void deleteDirectorsFromFilm(int filmId);
 
-    public void addDirectorToFilm(int filmId, int directorId);
+    void addDirectorToFilm(int filmId, int directorId);
 }

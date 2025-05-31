@@ -1,7 +1,6 @@
 package ru.yandex.practicum.filmorate.validation;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.Data;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -21,8 +20,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Data
 public final class FilmValidator {
+
+    private FilmValidator() {
+    }
 
     public static FilmRequest validateFilmRequestNew(FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage) {
         if (hasNoName(filmRequest)) {
@@ -65,10 +66,12 @@ public final class FilmValidator {
             filmRequest.setDirectors(validateDirectors(filmRequest.getDirectors(), directorStorage));
         }
 
+
         return filmRequest;
     }
 
     public static FilmRequest validateFilmRequestForUpdate(Film film, FilmRequest filmRequest, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage) {
+
         if (hasNoName(filmRequest)) {
             filmRequest.setName(film.getName());
         }
@@ -97,26 +100,34 @@ public final class FilmValidator {
             validateMpa(filmRequest.getMpa().getId(), mpaStorage);
         }
 
-        if (hasNoGenre(filmRequest)) {
+        if (filmRequest.getGenres() != null) {
+            if (filmRequest.getGenres().isEmpty()) {
+                filmRequest.setGenres(new ArrayList<>());
+            } else {
+                filmRequest.setGenres(validateGenre(filmRequest.getGenres(), genreStorage));
+            }
+        } else {
             List<Genre> genres = film.getGenres().stream()
                     .map(genreStorage::findGenreById)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .toList();
+                    .collect(Collectors.toList());
             filmRequest.setGenres(genres);
-        } else {
-            validateGenre(filmRequest.getGenres(), genreStorage);
         }
 
-        if (hasNoDirector(filmRequest)) {
+        if (filmRequest.getDirectors() != null) {
+            if (filmRequest.getDirectors().isEmpty()) {
+                filmRequest.setDirectors(new ArrayList<>());
+            } else {
+                filmRequest.setDirectors(validateDirectors(filmRequest.getDirectors(), directorStorage));
+            }
+        } else {
             List<Director> directors = film.getDirectors().stream()
                     .map(directorStorage::findDirectorById)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .toList();
+                    .collect(Collectors.toList());
             filmRequest.setDirectors(directors);
-        } else {
-            validateDirectors(filmRequest.getDirectors(), directorStorage);
         }
 
         return filmRequest;
@@ -149,9 +160,6 @@ public final class FilmValidator {
     public static boolean hasNoDirector(FilmRequest request) {
         return request.getDirectors() == null || request.getDirectors().isEmpty();
     }
-    /**
-     * Валидация параметров фильма
-     */
 
     public static void validateDescription(String description) {
         if (description.length() >= 200) {
@@ -177,21 +185,48 @@ public final class FilmValidator {
     }
 
     public static List<Genre> validateGenre(List<Genre> genres, GenreStorage genreStorage) {
+        if (genres == null) {
+            return new ArrayList<>();
+        }
         return genres.stream()
+                .filter(Objects::nonNull)
                 .map(Genre::getId)
-                .distinct() // убираем дубликаты
+                .distinct()
                 .map(genreId -> genreStorage.findGenreById(genreId)
                         .orElseThrow(() -> new NotFoundException(String.format("Жанр с id = %d не найден в справочнике", genreId))))
                 .collect(Collectors.toList());
     }
 
-
-
     public static List<Director> validateDirectors(List<Director> directors, DirectorStorage directorStorage) {
+        if (directors == null) {
+            return new ArrayList<>();
+        }
         return directors.stream()
-                .map(d -> directorStorage.findDirectorById(d.getId())
-                        .orElseThrow(() -> new NotFoundException("Режиссёр с id = " + d.getId() + " не найден")))
-                .toList();
+                .filter(Objects::nonNull)
+                .map(Director::getId)
+                .distinct()
+                .map(directorId -> directorStorage.findDirectorById(directorId)
+                        .orElseThrow(() -> new NotFoundException(String.format("Режиссёр с id = %d не найден в справочнике", directorId))))
+                .collect(Collectors.toList());
     }
 
+    public static void validateGenreIdForFilter(Integer genreId, GenreStorage genreStorage) {
+        log.debug("Валидация genreId для фильтрации: {}", genreId);
+        if (genreId != null) {
+            genreStorage.findGenreById(genreId)
+                    .orElseThrow(() -> new NotFoundException(String.format("Жанр с id = %d не найден в справочнике для фильтрации", genreId)));
+        }
+        log.debug("Валидация genreId для фильтрации пройдена.");
+    }
+
+    public static void validateYearForFilter(Integer year) {
+        log.debug("Валидация года для фильтрации: {}", year);
+        if (year != null) {
+            int currentYear = LocalDate.now().getYear();
+            if (year < 1895 || year > currentYear) {
+                throw new ValidationException(String.format("Год выпуска фильма для фильтрации должен быть между 1895 и %d", currentYear));
+            }
+        }
+        log.debug("Валидация года для фильтрации пройдена.");
+    }
 }
