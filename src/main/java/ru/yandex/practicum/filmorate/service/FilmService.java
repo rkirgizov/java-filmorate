@@ -57,11 +57,13 @@ public class FilmService {
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
-        if (!validatedFilmRequest.getDirectors().isEmpty()) {
-            filmStorage.deleteDirectorsFromFilm(film.getId());
+        if (validatedFilmRequest.getDirectors() != null && !validatedFilmRequest.getDirectors().isEmpty()) {
             Film finalFilm = film;
             validatedFilmRequest.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(finalFilm.getId(), director.getId()));
+        } else if (validatedFilmRequest.getDirectors() != null && validatedFilmRequest.getDirectors().isEmpty()) {
+            filmStorage.deleteDirectorsFromFilm(film.getId());
         }
+
 
         return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
     }
@@ -77,10 +79,11 @@ public class FilmService {
 
         Film filmUpdated = filmStorage.updateFilm(filmToPersist);
 
-        // Сохраняем режиссёров
-        if (!validatedFilmRequestForUpdate.getDirectors().isEmpty()) {
-            filmStorage.deleteDirectorsFromFilm(filmId); // очищаем старые данные
-            validatedFilmRequestForUpdate.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(filmId, director.getId()));
+        if (validatedFilmRequestForUpdate.getDirectors() != null) {
+            filmStorage.deleteDirectorsFromFilm(filmId);
+            if (!validatedFilmRequestForUpdate.getDirectors().isEmpty()) {
+                validatedFilmRequestForUpdate.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(filmId, director.getId()));
+            }
         }
 
         return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage, directorStorage);
@@ -105,13 +108,22 @@ public class FilmService {
         filmStorage.removeLikeFromFilm(filmId, userId);
     }
 
-    public List<FilmDto> getPopularFilms(int limit) {
-        log.info("Получение {} самых популярных фильмов", limit);
-        List<Film> allFilms = filmStorage.getPopularFilms(limit);
-        return allFilms.stream()
+    public List<FilmDto> getPopularFilms(int count, Integer genreId, Integer year) {
+        log.info("Получение {} самых популярных фильмов, фильтрация: genreId={}, year={}", count, genreId, year);
+
+        FilmValidator.validateGenreIdForFilter(genreId, genreStorage);
+        FilmValidator.validateYearForFilter(year);
+
+        List<Film> popularFilms = filmStorage.getPopularFilms(count, genreId, year);
+
+        List<FilmDto> popularFilmDtos = popularFilms.stream()
                 .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
-                .toList();
+                .collect(Collectors.toList());
+
+        log.info("Возвращено {} популярных фильмов с фильтрацией", popularFilmDtos.size());
+        return popularFilmDtos;
     }
+
 
     public List<FilmDto> findCommonFilms(int userId, int friendId) {
         log.info("Поиск общих фильмов для пользователей {} и {}", userId, friendId);
@@ -148,9 +160,15 @@ public class FilmService {
     }
 
     public List<FilmDto> getFilmsByDirectorSorted(int directorId, String sortBy) {
+        log.info("Получение фильмов режиссера {} с сортировкой {}", directorId, sortBy);
+        directorStorage.findDirectorById(directorId)
+                .orElseThrow(() -> new NotFoundException(String.format("Режиссер с id = %d не найден", directorId)));
+
+
         List<Film> films = filmStorage.getFilmsByDirector(directorId);
 
         if (films.isEmpty()) {
+            log.info("Не найдено фильмов для режиссера {} с сортировкой {}", directorId, sortBy);
             return Collections.emptyList();
         }
 
@@ -162,12 +180,14 @@ public class FilmService {
                 films.sort((f1, f2) -> {
                     int likes2 = filmStorage.countLikes(f2.getId());
                     int likes1 = filmStorage.countLikes(f1.getId());
-                    return Integer.compare(likes2, likes1); // по убыванию
+                    return Integer.compare(likes2, likes1);
                 });
                 break;
             default:
                 throw new IllegalArgumentException("Неподдерживаемый параметр сортировки: " + sortBy);
         }
+        log.info("Возвращено {} фильмов для режиссера {} отсортированных по {}", films.size(), directorId, sortBy);
+
 
         return films.stream()
                 .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
