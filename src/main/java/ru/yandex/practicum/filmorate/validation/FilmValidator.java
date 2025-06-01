@@ -185,8 +185,6 @@ public final class FilmValidator {
                 .collect(Collectors.toList());
     }
 
-
-
     public static List<Director> validateDirectors(List<Director> directors, DirectorStorage directorStorage) {
         return directors.stream()
                 .map(d -> directorStorage.findDirectorById(d.getId())

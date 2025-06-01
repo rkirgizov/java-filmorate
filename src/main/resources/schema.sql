@@ -1,6 +1,3 @@
--- Exported from QuickDBD: https://www.quickdatabasediagrams.com/
--- NOTE! If you have used non-SQL datatypes in your design, you will have to change these here.
-
 -- Для теста
 DROP TABLE IF EXISTS _user CASCADE;
 DROP TABLE IF EXISTS _user_friend CASCADE;
@@ -12,6 +9,8 @@ DROP TABLE IF EXISTS _film_genre CASCADE;
 DROP TABLE IF EXISTS _genre CASCADE;
 DROP TABLE IF EXISTS _film_director CASCADE;
 DROP TABLE IF EXISTS _director CASCADE;
+DROP TABLE IF EXISTS _review CASCADE;
+DROP TABLE IF EXISTS _review_rating CASCADE;
 
 CREATE TABLE IF NOT EXISTS _user (
     id int PRIMARY KEY AUTO_INCREMENT,
@@ -75,6 +74,24 @@ CREATE TABLE IF NOT EXISTS _film_director (
     director_id INT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS _review (
+    id int PRIMARY KEY AUTO_INCREMENT,
+    content     TEXT              NOT NULL,
+    is_positive BOOLEAN           NOT NULL,
+    user_id     BIGINT            NOT NULL,
+    film_id     BIGINT            NOT NULL,
+    useful      INTEGER DEFAULT 0 NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS _review_rating (
+    id int PRIMARY KEY AUTO_INCREMENT,
+    review_id BIGINT  NOT NULL,
+    user_id   BIGINT  NOT NULL,
+    is_like   BOOLEAN NOT NULL
+);
+
+
+
 
 
 --ALTER TABLE _user_friend ADD CONSTRAINT IF NOT EXISTS fk_user_friend_user_id FOREIGN KEY (user_id)
@@ -100,4 +117,3 @@ CREATE TABLE IF NOT EXISTS _film_director (
 --
 --ALTER TABLE _film_genre ADD CONSTRAINT IF NOT EXISTS fk_film_genre_genre_id FOREIGN KEY (genre_id)
 --REFERENCES _genre (id);
-
