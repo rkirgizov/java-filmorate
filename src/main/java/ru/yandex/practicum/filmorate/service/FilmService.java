@@ -217,4 +217,10 @@ public class FilmService {
                 .collect(Collectors.toList());
     }
 
+    public void removeFilm(int filmId) {
+        log.info("Удаление фильма с id: {}", filmId);
+        filmStorage.findFilmById(filmId)
+                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
+        filmStorage.deleteFilm(filmId);
+    }
 }

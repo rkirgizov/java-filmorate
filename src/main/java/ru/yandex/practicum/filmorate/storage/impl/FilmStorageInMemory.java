@@ -211,4 +211,19 @@ public class FilmStorageInMemory implements FilmStorage {
                 })
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public void deleteFilm(int filmId) {
+        if (!films.containsKey(filmId)) {
+            throw new NotFoundException(String.format("Фильм с id = %d не найден", filmId));
+        }
+
+        // Удаляем все связи фильма
+        filmLikes.remove(filmId);
+        filmDirectors.remove(filmId);
+
+        // Удаляем сам фильм
+        films.remove(filmId);
+        log.debug("Фильм с id = {} удален из памяти", filmId);
+    }
 }

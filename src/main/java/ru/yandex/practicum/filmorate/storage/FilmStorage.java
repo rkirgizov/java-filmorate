@@ -31,4 +31,6 @@ public interface FilmStorage {
     void addDirectorToFilm(int filmId, int directorId);
 
     List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector);
+
+    void deleteFilm(int filmId); //
 }

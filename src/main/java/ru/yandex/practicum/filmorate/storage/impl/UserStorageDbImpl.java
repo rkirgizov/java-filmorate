@@ -38,6 +38,9 @@ public class UserStorageDbImpl extends BaseStorage<User> implements UserStorage 
     private static final String FIND_EVENTS_BY_USERID_QUERY = "SELECT * FROM _user_event WHERE user_id = ? ORDER BY timestamp";
     private static final String ADD_EVENT_QUERY = "INSERT INTO _user_event (timestamp,user_id,event_type,operation,entity_id) VALUES (?,?,?,?,?)";
 
+    private static final String DELETE_USER_FRIENDS_QUERY = "DELETE FROM _user_friend WHERE user_id = ? OR friend_id = ?";
+    private static final String DELETE_USER_EVENTS_QUERY = "DELETE FROM _user_event WHERE user_id = ?";
+
     public UserStorageDbImpl(JdbcTemplate jdbc, RowMapper<User> mapper) {
         super(jdbc, mapper);
     }
@@ -83,6 +86,11 @@ public class UserStorageDbImpl extends BaseStorage<User> implements UserStorage 
 
     @Override
     public void deleteUser(int userId) {
+        // Удаляем дружеские связи
+        delete(DELETE_USER_FRIENDS_QUERY, userId, userId);
+        // Удаляем события
+        delete(DELETE_USER_EVENTS_QUERY, userId);
+        // Удаляем самого пользователя
         delete(DELETE_QUERY, userId);
         log.debug("Пользователь с id = {} - удален", userId);
     }
@@ -127,7 +135,6 @@ public class UserStorageDbImpl extends BaseStorage<User> implements UserStorage 
         );
         log.debug("Событие пользователя с id = {} - добавлено", userId);
     }
-
 }
 
 
