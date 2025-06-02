@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS _film_director CASCADE;
 DROP TABLE IF EXISTS _director CASCADE;
 DROP TABLE IF EXISTS _review CASCADE;
 DROP TABLE IF EXISTS _review_rating CASCADE;
+DROP TABLE IF EXISTS _user_event CASCADE;
 
 CREATE TABLE IF NOT EXISTS _user (
     id int PRIMARY KEY AUTO_INCREMENT,
@@ -78,19 +79,26 @@ CREATE TABLE IF NOT EXISTS _review (
     id int PRIMARY KEY AUTO_INCREMENT,
     content     TEXT              NOT NULL,
     is_positive BOOLEAN           NOT NULL,
-    user_id     BIGINT            NOT NULL,
-    film_id     BIGINT            NOT NULL,
+    user_id     INT            NOT NULL,
+    film_id     INT            NOT NULL,
     useful      INTEGER DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS _review_rating (
     id int PRIMARY KEY AUTO_INCREMENT,
-    review_id BIGINT  NOT NULL,
-    user_id   BIGINT  NOT NULL,
+    review_id INT  NOT NULL,
+    user_id   INT  NOT NULL,
     is_like   BOOLEAN NOT NULL
 );
 
-
+CREATE TABLE IF NOT EXISTS _user_event (
+    id int PRIMARY KEY AUTO_INCREMENT,
+    timestamp BIGINT NOT NULL,
+    user_id INT NOT NULL,
+    event_type VARCHAR(10) NOT NULL,
+    operation VARCHAR(10) NOT NULL,
+    entity_id INT NOT NULL
+);
 
 
 

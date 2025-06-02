@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.*;
+import ru.yandex.practicum.filmorate.enumeration.EventOperation;
+import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NonCriticalException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -79,7 +81,7 @@ public class UserService {
             throw new NotFoundException("Один из пользователей не найден");
         }
         userStorage.addFriendRequest(userId, userFriendId);
-
+        userStorage.addEvent(userId, EventType.FRIEND, EventOperation.ADD, userFriendId);
         log.debug("Пользователь {} добавил в друзья пользователя {}", userId, userFriendId);
     }
 
@@ -91,6 +93,9 @@ public class UserService {
             throw new NonCriticalException("Нет друзей для удаления");
         }
         userStorage.deleteFriend(userId, userFriendId);
+        userStorage.addEvent(userId, EventType.FRIEND, EventOperation.REMOVE, userFriendId);
+        log.debug("Пользователь {} удалил из друзей пользователя {}", userId, userFriendId);
+
     }
 
     public List<UserFriendDto> findFriendsByUserId(int userId) {
@@ -113,6 +118,13 @@ public class UserService {
         }
 
         return friends1;
+    }
+
+    public List<UserEventDto> findEventsByUserId(int userId) {
+        userStorage.findUserById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+        return userStorage.findEventsByUserId(userId).stream()
+                .toList();
     }
 
 }
