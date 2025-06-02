@@ -3,7 +3,10 @@ package ru.yandex.practicum.filmorate.storage.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import ru.yandex.practicum.filmorate.dto.UserEventDto;
 import ru.yandex.practicum.filmorate.dto.UserFriendDto;
+import ru.yandex.practicum.filmorate.enumeration.EventOperation;
+import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
@@ -73,6 +76,16 @@ public class UserStorageInMemory implements UserStorage {
     @Override
     public List<UserFriendDto> findFriendsByUserId(int userId) {
         return List.of();
+    }
+
+    @Override
+    public List<UserEventDto> findEventsByUserId(int userId) {
+        return List.of();
+    }
+
+    @Override
+    public void addEvent(Integer userId, EventType eventType, EventOperation operation, Integer entityId) {
+
     }
 
     private int getNextId() {

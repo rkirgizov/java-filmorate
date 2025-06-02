@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.FilmDto;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
+import ru.yandex.practicum.filmorate.enumeration.EventOperation;
+import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
@@ -86,14 +88,15 @@ public class FilmService {
         return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage, directorStorage);
     }
 
-
     public void addLikeToFilm(Integer filmId, Integer userId) {
-        log.info("Пользователь {} ставит лайк фильму {}", userId, filmId);
         filmStorage.findFilmById(filmId)
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
         userStorage.findUserById(userId)
                 .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+        log.info("Пользователь {} ставит лайк фильму {}", userId, filmId);
         filmStorage.addLikeToFilm(filmId, userId);
+        userStorage.addEvent(userId, EventType.LIKE, EventOperation.ADD, filmId);
+
     }
 
     public void removeLikeFromFilm(Integer filmId, Integer userId) {
@@ -103,6 +106,8 @@ public class FilmService {
         userStorage.findUserById(userId)
                 .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
         filmStorage.removeLikeFromFilm(filmId, userId);
+        userStorage.addEvent(userId, EventType.LIKE, EventOperation.REMOVE, filmId);
+
     }
 
     public List<FilmDto> getPopularFilms(int limit) {

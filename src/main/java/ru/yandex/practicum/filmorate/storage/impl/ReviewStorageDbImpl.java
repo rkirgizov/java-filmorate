@@ -32,6 +32,7 @@ public class ReviewStorageDbImpl extends BaseStorage<Review> implements ReviewSt
     }
 
     public Optional<Review> findReviewById(int reviewId) {
+        log.debug("Вывод отзыва по id: {}", reviewId);
         return findOne(FIND_BY_ID_QUERY, reviewId);
     }
 

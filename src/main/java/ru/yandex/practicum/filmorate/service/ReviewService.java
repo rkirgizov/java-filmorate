@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.*;
+import ru.yandex.practicum.filmorate.enumeration.EventOperation;
+import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.ReviewMapper;
@@ -58,6 +60,7 @@ public class ReviewService {
         }
         Review review = ReviewMapper.mapToReview(reviewRequest);
         review = reviewStorage.createReview(review);
+        userStorage.addEvent(reviewRequest.getUserId(), EventType.REVIEW, EventOperation.ADD, review.getId());
 
         return ReviewMapper.mapToReviewDto(review);
     }
@@ -70,14 +73,17 @@ public class ReviewService {
         Review reviewToPersist = ReviewMapper.mapToReview(validatedReviewRequestForUpdate);
         reviewToPersist.setId(reviewId);
         Review reviewUpdated = reviewStorage.updateReview(reviewToPersist);
+        userStorage.addEvent(reviewUpdated.getUserId(), EventType.REVIEW, EventOperation.UPDATE, reviewUpdated.getId());
 
         return ReviewMapper.mapToReviewDto(reviewUpdated);
     }
 
     public void removeReview(int reviewId) {
-        reviewStorage.findReviewById(reviewId)
+        Review reviewForRemove = reviewStorage.findReviewById(reviewId)
                 .orElseThrow(() -> new NotFoundException(String.format("Отзыв с id: %s не найден", reviewId)));
         reviewStorage.removeReview(reviewId);
+        userStorage.addEvent(reviewForRemove.getUserId(), EventType.REVIEW, EventOperation.REMOVE, reviewForRemove.getId());
+
     }
 
     public void addLike(int reviewId, int userId) {
@@ -87,6 +93,7 @@ public class ReviewService {
             reviewStorage.removeDislike(reviewId, userId);
         }
         reviewStorage.addLike(reviewId, userId);
+
     }
 
     public void removeLike(int reviewId, int userId) {
