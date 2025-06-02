@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.enumeration.EventOperation;
 import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.*;
@@ -197,6 +198,23 @@ public class FilmService {
         return films.stream()
                 .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
                 .toList();
+    }
+
+    public List<FilmDto> searchFilms(String query, List<String> by) {
+        log.info("Поиск фильмов по запросу '{}' с параметрами by={}", query, by);
+
+        boolean searchByTitle = by.contains("title");
+        boolean searchByDirector = by.contains("director");
+
+        if (!searchByTitle && !searchByDirector) {
+            throw new ValidationException("Параметр 'by' должен содержать 'title' и/или 'director'");
+        }
+
+        List<Film> films = filmStorage.searchFilms(query.toLowerCase(), searchByTitle, searchByDirector);
+
+        return films.stream()
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .collect(Collectors.toList());
     }
 
 }

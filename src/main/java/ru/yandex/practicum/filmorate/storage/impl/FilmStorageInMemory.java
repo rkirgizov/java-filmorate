@@ -1,10 +1,12 @@
 package ru.yandex.practicum.filmorate.storage.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
 import java.util.*;
@@ -12,11 +14,14 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component("FilmStorageInMemory")
+@RequiredArgsConstructor
 public class FilmStorageInMemory implements FilmStorage {
 
     private final Map<Integer, Film> films = new HashMap<>();
     private final Map<Integer, Set<Integer>> filmLikes = new HashMap<>();
     private final Map<Integer, Set<Integer>> filmDirectors = new HashMap<>();
+
+    private final DirectorStorage directorStorage;
 
     private int nextId = 1;
 
@@ -177,5 +182,33 @@ public class FilmStorageInMemory implements FilmStorage {
         log.debug("Добавление режиссера {} к фильму {} в памяти", directorId, filmId);
         filmDirectors.computeIfAbsent(filmId, k -> new HashSet<>()).add(directorId);
         log.info("Режиссер {} добавлен к фильму {}", directorId, filmId);
+    }
+
+    @Override
+    public List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector) {
+        return films.values().stream()
+                .filter(film -> {
+                    boolean matches = false;
+
+                    if (searchByTitle && film.getName().toLowerCase().contains(query)) {
+                        matches = true;
+                    }
+
+                    if (searchByDirector && !matches) {
+                        matches = filmDirectors.getOrDefault(film.getId(), Collections.emptySet()).stream()
+                                .map(directorId -> directorStorage.findDirectorById(directorId)) // о
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .anyMatch(director -> director.getName().toLowerCase().contains(query));
+                    }
+
+                    return matches;
+                })
+                .sorted((f1, f2) -> {
+                    int likes1 = filmLikes.getOrDefault(f1.getId(), Collections.emptySet()).size();
+                    int likes2 = filmLikes.getOrDefault(f2.getId(), Collections.emptySet()).size();
+                    return Integer.compare(likes2, likes1);
+                })
+                .collect(Collectors.toList());
     }
 }
