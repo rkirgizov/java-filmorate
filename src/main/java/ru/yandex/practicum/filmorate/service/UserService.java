@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.*;
@@ -16,15 +17,17 @@ import ru.yandex.practicum.filmorate.validation.UserValidator;
 
 import java.util.*;
 
-//@RequiredArgsConstructor Убрал, так как Qualifier не работает с @RequiredArgsConstructor
 @Slf4j
 @Service
 public class UserService {
 
     private final UserStorage userStorage;
+    private final FilmService filmService;
 
-    public UserService(@Qualifier("UserStorageDbImpl") UserStorage userStorage) {
+    @Autowired
+    public UserService(@Qualifier("UserStorageDbImpl") UserStorage userStorage, FilmService filmService) {
         this.userStorage = userStorage;
+        this.filmService = filmService;
     }
 
     public UserDto findUserById(Integer userId) {
@@ -127,4 +130,69 @@ public class UserService {
                 .toList();
     }
 
+    public List<FilmDto> findRecommendedFilms(Integer userId) {
+        userStorage.findUserById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+
+        Set<Integer> currentUserLikes = filmService.getFilmLikesByUserId(userId);
+
+        if (currentUserLikes.isEmpty()) {
+            log.info("У пользователя с ID {} нет лайков, рекомендации отсутствуют.", userId);
+            return Collections.emptyList();
+        }
+
+        Map<Integer, Set<Integer>> allUsersLikes = filmService.getAllUsersLikes();
+
+        allUsersLikes.remove(userId);
+
+        int maxIntersectionSize = 0;
+        Set<Integer> usersWithMaxIntersection = new HashSet<>();
+
+        for (Map.Entry<Integer, Set<Integer>> entry : allUsersLikes.entrySet()) {
+            Integer otherUserId = entry.getKey();
+            Set<Integer> otherUserLikes = entry.getValue();
+
+            Set<Integer> intersection = new HashSet<>(currentUserLikes);
+            intersection.retainAll(otherUserLikes);
+
+            int currentIntersectionSize = intersection.size();
+
+            if (currentIntersectionSize > maxIntersectionSize) {
+                maxIntersectionSize = currentIntersectionSize;
+                usersWithMaxIntersection.clear();
+                usersWithMaxIntersection.add(otherUserId);
+            } else if (currentIntersectionSize > 0 && currentIntersectionSize == maxIntersectionSize) {
+                usersWithMaxIntersection.add(otherUserId);
+            }
+        }
+
+        if (maxIntersectionSize == 0) {
+            log.info("Не найдено пользователей с общими лайками для пользователя с ID {}", userId);
+            return Collections.emptyList();
+        }
+
+        Set<Integer> recommendedFilmIds = new HashSet<>();
+        for (Integer similarUserId : usersWithMaxIntersection) {
+            Set<Integer> similarUserLikes = allUsersLikes.get(similarUserId);
+            if (similarUserLikes != null) {
+                for (Integer filmId : similarUserLikes) {
+                    if (!currentUserLikes.contains(filmId)) {
+                        recommendedFilmIds.add(filmId);
+                    }
+                }
+            }
+        }
+
+        if (recommendedFilmIds.isEmpty()) {
+            log.info("Не найдено фильмов для рекомендации по лайкам похожих пользователей для пользователя с ID {}", userId);
+            return Collections.emptyList();
+        }
+
+        List<Integer> recommendedFilmIdList = new ArrayList<>(recommendedFilmIds);
+        List<FilmDto> recommendedFilms = filmService.getFilmsByIds(recommendedFilmIdList);
+
+        log.debug("Найдено {} рекомендованных фильмов для пользователя с ID {}", recommendedFilms.size(), userId);
+
+        return recommendedFilms;
+    }
 }

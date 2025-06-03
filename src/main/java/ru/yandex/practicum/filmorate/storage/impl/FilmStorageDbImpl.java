@@ -1,16 +1,18 @@
 package ru.yandex.practicum.filmorate.storage.impl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.BaseStorage;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component("FilmStorageDbImpl")
@@ -51,8 +53,16 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     private static final String DELETE_FILM_LIKES_QUERY = "DELETE FROM _like WHERE film_id = ?";
     private static final String DELETE_FILM_DIRECTORS_QUERY = "DELETE FROM _film_director WHERE film_id = ?";
 
+    private static final String FIND_FILM_LIKES_BY_USER_ID_SQL = "SELECT film_id FROM _like WHERE user_id = ?";
+    private static final String FIND_ALL_USERS_LIKES_SQL = "SELECT user_id, film_id FROM _like";
+
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+
+    @Autowired
     public FilmStorageDbImpl(JdbcTemplate jdbc, RowMapper<Film> mapper) {
         super(jdbc, mapper);
+        this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(jdbc);
     }
 
     @Override
@@ -85,6 +95,11 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                     }
             );
         }
+        if (film.getDirectors() != null && !film.getDirectors().isEmpty()) {
+            film.getDirectors().forEach(directorId -> {
+                insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
+            });
+        }
         log.info("Фильм с id = {} - добавлен в БД", film.getId());
         return film;
     }
@@ -109,6 +124,15 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
                     }
             );
         }
+
+        delete(DELETE_DIRECTORS_FROM_FILM, filmId);
+        if (film.getDirectors() != null && !film.getDirectors().isEmpty()) {
+            film.getDirectors().forEach(directorId -> {
+                insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
+            });
+        }
+
+
         log.info("Фильм с id = {} - обновлён в БД", film.getId());
         return film;
     }
@@ -127,8 +151,12 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     @Override
     public void removeLikeFromFilm(Integer filmId, Integer userId) {
         log.debug("Пользователь {} удаляет лайк с фильма {}", userId, filmId);
-        delete(DELETE_LIKE_QUERY, userId, filmId);
-        log.info("Лайк пользователя {} удален с фильма {}", userId, filmId);
+        int affectedRows = jdbc.update(DELETE_LIKE_QUERY, userId, filmId);
+        if (affectedRows > 0) {
+            log.info("Лайк пользователя {} удален с фильма {}", userId, filmId);
+        } else {
+            log.warn("Лайк пользователя {} для фильма {} не найден для удаления", userId, filmId);
+        }
     }
 
     @Override
@@ -178,7 +206,8 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
     @Override
     public int countLikes(int filmId) {
         log.debug("Подсчет лайков для фильма с id {}", filmId);
-        return jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
+        Integer likeCount = jdbc.queryForObject(COUNT_LIKES_SQL, Integer.class, filmId);
+        return likeCount != null ? likeCount : 0;
     }
 
     @Override
@@ -191,18 +220,21 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
 
     @Override
     public void deleteDirectorsFromFilm(int filmId) {
-        log.debug("Удаление всех режиссеров для фильма с id {}", filmId);
-        delete(DELETE_DIRECTORS_FROM_FILM, filmId);
+        log.debug("Удаление всех режиссеров для фильма с id {} в БД", filmId);
+        jdbc.update(DELETE_DIRECTORS_FROM_FILM, filmId);
+        log.debug("Удалено {} режиссеров для фильма с id {}", jdbc.update(DELETE_DIRECTORS_FROM_FILM, filmId), filmId);
     }
 
     @Override
     public void addDirectorToFilm(int filmId, int directorId) {
-        log.debug("Добавление режиссера {} к фильму {}", directorId, filmId);
+        log.debug("Добавление режиссера {} к фильму {} в БД", directorId, filmId);
         insert(INSERT_DIRECTOR_TO_FILM, filmId, directorId);
+        log.debug("Режиссер {} добавлен к фильму {}", directorId, filmId);
     }
 
     @Override
     public List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector) {
+        log.debug("Поиск фильмов в БД по запросу '{}' с параметрами by={}", query, List.of(searchByTitle ? "title" : "", searchByDirector ? "director" : "").stream().filter(s -> !s.isEmpty()).collect(Collectors.joining(",")));
         StringBuilder sqlBuilder = new StringBuilder(
                 "SELECT f.*, COUNT(l.user_id) AS likes_count FROM _film f ");
 
@@ -215,33 +247,85 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
         sqlBuilder.append("WHERE ");
 
         List<String> conditions = new ArrayList<>();
-        List<Object> params = new ArrayList<>();
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
 
         if (searchByTitle) {
-            conditions.add("LOWER(f.name) LIKE ?");
-            params.add("%" + query + "%");
+            conditions.add("LOWER(f.name) LIKE :query");
+            parameters.addValue("query", "%" + query.toLowerCase() + "%");
         }
 
         if (searchByDirector) {
-            conditions.add("LOWER(d.name) LIKE ?");
-            params.add("%" + query + "%");
+            if (!conditions.isEmpty()) sqlBuilder.append("(");
+            conditions.add("LOWER(d.name) LIKE :query");
+            parameters.addValue("query", "%" + query.toLowerCase() + "%");
+            if (!conditions.isEmpty() && searchByTitle) sqlBuilder.append(")");
         }
 
         sqlBuilder.append(String.join(" OR ", conditions));
         sqlBuilder.append(" GROUP BY f.id ORDER BY likes_count DESC");
 
-        return findMany(sqlBuilder.toString(), params.toArray());
+        log.debug("Executing search films query: {}", sqlBuilder.toString());
+        log.debug("With parameters: {}", parameters.getValues());
+
+        return namedParameterJdbcTemplate.query(sqlBuilder.toString(), parameters, getMapper());
     }
 
     @Override
     public void deleteFilm(int filmId) {
-        // Удаляем связи фильма сначала
-        delete(DELETE_FILM_GENRES_QUERY, filmId);
-        delete(DELETE_FILM_LIKES_QUERY, filmId);
-        delete(DELETE_FILM_DIRECTORS_QUERY, filmId);
+        log.info("Удаление фильма с id: {}", filmId);
+        jdbc.update(DELETE_FILM_GENRES_QUERY, filmId);
+        jdbc.update(DELETE_FILM_LIKES_QUERY, filmId);
+        jdbc.update(DELETE_FILM_DIRECTORS_QUERY, filmId);
 
-        // Затем удаляем сам фильм
-        delete(DELETE_FILM_QUERY, filmId);
-        log.debug("Фильм с id = {} удален", filmId);
+        int affectedRows = jdbc.update(DELETE_FILM_QUERY, filmId);
+
+        if (affectedRows > 0) {
+            log.debug("Фильм с id = {} удален", filmId);
+        } else {
+            log.warn("Фильм с id = {} не найден для удаления", filmId);
+        }
+    }
+
+    @Override
+    public Set<Integer> findFilmLikesByUserId(Integer userId) {
+        log.debug("Поиск лайков для пользователя {} в БД", userId);
+        List<Integer> filmIds = jdbc.queryForList(FIND_FILM_LIKES_BY_USER_ID_SQL, Integer.class, userId);
+        log.debug("Найдено {} лайков для пользователя {}", filmIds.size(), userId);
+        return new HashSet<>(filmIds);
+    }
+
+    @Override
+    public Map<Integer, Set<Integer>> findAllUsersLikes() {
+        log.debug("Поиск всех лайков всех пользователей в БД");
+        List<Map<String, Object>> likesData = jdbc.queryForList(FIND_ALL_USERS_LIKES_SQL);
+
+        Map<Integer, Set<Integer>> usersLikes = new HashMap<>();
+        for (Map<String, Object> row : likesData) {
+            Integer userId = (Integer) row.get("user_id");
+            Integer filmId = (Integer) row.get("film_id");
+
+            usersLikes.computeIfAbsent(userId, k -> new HashSet<>()).add(filmId);
+        }
+        log.debug("Собрана карта лайков для {} пользователей", usersLikes.size());
+        return usersLikes;
+    }
+
+    @Override
+    public List<Film> findFilmsByIds(List<Integer> filmIds) {
+        if (filmIds == null || filmIds.isEmpty()) {
+            log.debug("Список ID фильмов для поиска пуст");
+            return Collections.emptyList();
+        }
+        log.debug("Поиск фильмов в БД по списку ID: {}", filmIds);
+
+        String sql = "SELECT * FROM _film WHERE id IN (:filmIds)";
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("filmIds", filmIds);
+
+        List<Film> films = namedParameterJdbcTemplate.query(sql, parameters, getMapper());
+
+        log.debug("Найдено {} фильмов по списку ID", films.size());
+        return films;
     }
 }

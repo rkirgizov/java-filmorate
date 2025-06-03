@@ -38,8 +38,7 @@ public class FilmStorageInMemory implements FilmStorage {
         films.put(film.getId(), film);
 
         if (film.getDirectors() != null && !film.getDirectors().isEmpty()) {
-            Set<Integer> directorIds = film.getDirectors().stream()
-                    .collect(Collectors.toSet());
+            Set<Integer> directorIds = new HashSet<>(film.getDirectors());
             filmDirectors.put(film.getId(), directorIds);
             log.debug("Сохранены режиссеры для фильма {}: {}", film.getId(), directorIds);
         } else {
@@ -79,7 +78,10 @@ public class FilmStorageInMemory implements FilmStorage {
                 filmDirectors.put(updatedFilm.getId(), directorIds);
                 log.debug("Обновлены режиссеры для фильма {}: {}", updatedFilm.getId(), directorIds);
             }
+        } else {
+            log.debug("Список режиссеров в запросе обновления для фильма {} отсутствует, связи не изменяются", updatedFilm.getId());
         }
+
 
         log.info("Фильм с id = {} - обновлён в памяти", updatedFilm.getId());
         return oldFilm;
@@ -97,10 +99,17 @@ public class FilmStorageInMemory implements FilmStorage {
         log.debug("Пользователь {} удаляет лайк с фильма {} в памяти", userId, filmId);
         Set<Integer> likes = filmLikes.get(filmId);
         if (likes != null) {
-            likes.remove(userId);
-            log.info("Лайк пользователя {} удален с фильма {}", userId, filmId);
+            boolean removed = likes.remove(userId);
+            if (removed) {
+                log.info("Лайк пользователя {} удален с фильма {}", userId, filmId);
+            } else {
+                log.warn("Попытка удалить лайк пользователя {} с фильма {} в памяти, но лайк не найден", userId, filmId);
+            }
+            if (likes.isEmpty()) {
+                filmLikes.remove(filmId);
+            }
         } else {
-            log.warn("Попытка удалить лайк пользователя {} с фильма {} в памяти, но лайков не найдено", userId, filmId);
+            log.warn("Попытка удалить лайк пользователя {} с фильма {} в памяти, но лайков для фильма не найдено", userId, filmId);
         }
     }
 
@@ -112,7 +121,7 @@ public class FilmStorageInMemory implements FilmStorage {
                 .filter(film -> {
                     boolean matchesGenre = true;
                     if (genreId != null) {
-                        matchesGenre = film.getGenres() != null && film.getGenres().contains(genreId);
+                        matchesGenre = film.getGenres() != null && !film.getGenres().isEmpty() && film.getGenres().contains(genreId);
                     }
 
                     boolean matchesYear = true;
@@ -146,8 +155,10 @@ public class FilmStorageInMemory implements FilmStorage {
     }
 
     private int getNextId() {
-        int currentMaxId = films.keySet().stream().mapToInt(id -> id).max().orElse(0);
-        return ++currentMaxId;
+        while (films.containsKey(nextId)) {
+            nextId++;
+        }
+        return nextId++;
     }
 
     @Override
@@ -186,20 +197,24 @@ public class FilmStorageInMemory implements FilmStorage {
 
     @Override
     public List<Film> searchFilms(String query, boolean searchByTitle, boolean searchByDirector) {
-        return films.values().stream()
+        log.debug("Поиск фильмов по запросу '{}' с параметрами by={} в памяти", query, List.of(searchByTitle ? "title" : "", searchByDirector ? "director" : "").stream().filter(s -> !s.isEmpty()).collect(Collectors.joining(",")));
+        String lowerQuery = query.toLowerCase();
+
+        List<Film> foundFilms = films.values().stream()
                 .filter(film -> {
                     boolean matches = false;
 
-                    if (searchByTitle && film.getName().toLowerCase().contains(query)) {
+                    if (searchByTitle && film.getName().toLowerCase().contains(lowerQuery)) {
                         matches = true;
                     }
 
                     if (searchByDirector && !matches) {
-                        matches = filmDirectors.getOrDefault(film.getId(), Collections.emptySet()).stream()
-                                .map(directorId -> directorStorage.findDirectorById(directorId)) // о
+                        Set<Integer> filmDirectorIds = filmDirectors.getOrDefault(film.getId(), Collections.emptySet());
+                        matches = filmDirectorIds.stream()
+                                .map(directorStorage::findDirectorById)
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
-                                .anyMatch(director -> director.getName().toLowerCase().contains(query));
+                                .anyMatch(director -> director.getName().toLowerCase().contains(lowerQuery));
                     }
 
                     return matches;
@@ -210,20 +225,70 @@ public class FilmStorageInMemory implements FilmStorage {
                     return Integer.compare(likes2, likes1);
                 })
                 .collect(Collectors.toList());
+
+        log.info("Найдено {} фильмов в памяти по запросу '{}'", foundFilms.size(), query);
+        return foundFilms;
     }
+
 
     @Override
     public void deleteFilm(int filmId) {
+        log.info("Удаление фильма с id: {} из памяти", filmId);
         if (!films.containsKey(filmId)) {
             throw new NotFoundException(String.format("Фильм с id = %d не найден", filmId));
         }
 
-        // Удаляем все связи фильма
         filmLikes.remove(filmId);
         filmDirectors.remove(filmId);
 
-        // Удаляем сам фильм
         films.remove(filmId);
         log.debug("Фильм с id = {} удален из памяти", filmId);
+    }
+
+
+    @Override
+    public Set<Integer> findFilmLikesByUserId(Integer userId) {
+        log.debug("Поиск лайков для пользователя {} в памяти", userId);
+        Set<Integer> likedFilmIds = new HashSet<>();
+        for (Map.Entry<Integer, Set<Integer>> entry : filmLikes.entrySet()) {
+            Integer filmId = entry.getKey();
+            Set<Integer> userIdsWhoLiked = entry.getValue();
+            if (userIdsWhoLiked != null && userIdsWhoLiked.contains(userId)) {
+                likedFilmIds.add(filmId);
+            }
+        }
+        log.debug("Найдено {} лайков для пользователя {} в памяти", likedFilmIds.size(), userId);
+        return likedFilmIds;
+    }
+
+    @Override
+    public Map<Integer, Set<Integer>> findAllUsersLikes() {
+        log.debug("Поиск всех лайков всех пользователей в памяти");
+        Map<Integer, Set<Integer>> usersLikes = new HashMap<>();
+        for (Map.Entry<Integer, Set<Integer>> entry : filmLikes.entrySet()) {
+            Integer filmId = entry.getKey();
+            Set<Integer> userIds = entry.getValue();
+            if (userIds != null) {
+                for (Integer userId : userIds) {
+                    usersLikes.computeIfAbsent(userId, k -> new HashSet<>()).add(filmId);
+                }
+            }
+        }
+        log.debug("Собрана карта лайков для {} пользователей в памяти", usersLikes.size());
+        return usersLikes;
+    }
+
+    @Override
+    public List<Film> findFilmsByIds(List<Integer> filmIds) {
+        if (filmIds == null || filmIds.isEmpty()) {
+            log.debug("Список ID фильмов для поиска в памяти пуст");
+            return Collections.emptyList();
+        }
+        log.debug("Поиск фильмов в памяти по списку ID: {}", filmIds);
+        List<Film> foundFilms = films.values().stream()
+                .filter(film -> film != null && film.getId() != null && filmIds.contains(film.getId()))
+                .collect(Collectors.toList());
+        log.debug("Найдено {} фильмов в памяти по списку ID", foundFilms.size());
+        return foundFilms;
     }
 }

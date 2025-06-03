@@ -79,4 +79,9 @@ public class UserController {
         return userService.findEventsByUserId(userId);
     }
 
+    @GetMapping("/{id}/recommendations")
+    public List<FilmDto> findRecommendedFilms(@PathVariable Integer id) {
+        log.debug("Получен запрос GET /users/{}/recommendations для получения рекомендаций фильмов", id);
+        return userService.findRecommendedFilms(id);
+    }
 }
