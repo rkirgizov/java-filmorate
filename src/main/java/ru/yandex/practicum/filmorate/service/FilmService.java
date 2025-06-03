@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.FilmDto;
@@ -14,9 +15,7 @@ import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.*;
 import ru.yandex.practicum.filmorate.validation.FilmValidator;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +28,7 @@ public class FilmService {
     private final DirectorStorage directorStorage;
     private final UserStorage userStorage;
 
+    @Autowired
     public FilmService(@Qualifier("FilmStorageDbImpl") FilmStorage filmStorage, MpaStorage mpaStorage, GenreStorage genreStorage, DirectorStorage directorStorage, @Qualifier("UserStorageDbImpl") UserStorage userStorage) {
         this.filmStorage = filmStorage;
         this.mpaStorage = mpaStorage;
@@ -222,5 +222,28 @@ public class FilmService {
         filmStorage.findFilmById(filmId)
                 .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
         filmStorage.deleteFilm(filmId);
+    }
+
+    public Set<Integer> getFilmLikesByUserId(Integer userId) {
+        log.debug("Получение списка лайков для пользователя с ID {} (делегирование в storage)", userId);
+        return filmStorage.findFilmLikesByUserId(userId);
+    }
+
+    public Map<Integer, Set<Integer>> getAllUsersLikes() {
+        log.debug("Получение всех лайков всех пользователей (делегирование в storage)");
+        return filmStorage.findAllUsersLikes();
+    }
+
+    public List<FilmDto> getFilmsByIds(List<Integer> filmIds) {
+        if (filmIds == null || filmIds.isEmpty()) {
+            log.debug("Список ID фильмов для получения пуст");
+            return Collections.emptyList();
+        }
+        log.debug("Получение фильмов по списку ID: {} (делегирование в storage и маппинг)", filmIds);
+        List<Film> films = filmStorage.findFilmsByIds(filmIds);
+
+        return films.stream()
+                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .collect(Collectors.toList());
     }
 }

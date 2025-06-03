@@ -13,9 +13,13 @@ import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class BaseStorage<T> {
+public abstract class BaseStorage<T> {
     protected final JdbcTemplate jdbc;
     protected final RowMapper<T> mapper;
+
+    protected RowMapper<T> getMapper() {
+        return this.mapper;
+    }
 
     protected List<T> findMany(String query, Object... params) {
         return jdbc.query(query, mapper, params);
@@ -33,15 +37,15 @@ public class BaseStorage<T> {
             for (int idx = 0; idx < params.length; idx++) {
                 ps.setObject(idx + 1, params[idx]);
             }
-            return ps; }, keyHolder);
+            return ps;
+        }, keyHolder);
 
         Integer id = keyHolder.getKeyAs(Integer.class);
 
-        // Возвращаем id нового пользователя
         if (id != null) {
             return id;
         } else {
-            throw new InternalServerException("Не удалось сохранить данные");
+            throw new InternalServerException("Failed to retrieve generated ID after insert operation.");
         }
     }
 
@@ -65,6 +69,4 @@ public class BaseStorage<T> {
     protected Integer count(String query, Object... params) {
         return jdbc.queryForObject(query, Integer.class, params);
     }
-
-
 }
