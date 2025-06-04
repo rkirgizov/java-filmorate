@@ -110,14 +110,14 @@ public class UserService {
     }
 
     public List<UserFriendDto> findCommonFriends(int userId, int otherUserId) {
-        // Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
+        //Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
 //        if (userStorage.findUserById(userId).isEmpty() || userStorage.findUserById(otherUserId).isEmpty()) {
 //            throw new NotFoundException("Один из пользователей не найден");
 //        }
         List<UserFriendDto> friends1 = userStorage.findFriendsByUserId(userId);
         List<UserFriendDto> friends2 = userStorage.findFriendsByUserId(otherUserId);
         friends1.removeIf(value -> !friends2.contains(value));
-        // Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
+        //Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
 //        if (friends1.isEmpty()) {
 //            throw new NotFoundException("Нет общих друзей");
 //        }
