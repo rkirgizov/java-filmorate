@@ -254,14 +254,25 @@ public class FilmStorageDbImpl extends BaseStorage<Film> implements FilmStorage 
             parameters.addValue("query", "%" + query.toLowerCase() + "%");
         }
 
+        // вот здесь был косяк с формированием условий поиска, выдавало ошибку sql
+        // поправил пока так, но наверное можно сделать по-хорошему
+        // ------------------------------------------
         if (searchByDirector) {
-            if (!conditions.isEmpty()) sqlBuilder.append("(");
             conditions.add("LOWER(d.name) LIKE :query");
             parameters.addValue("query", "%" + query.toLowerCase() + "%");
-            if (!conditions.isEmpty() && searchByTitle) sqlBuilder.append(")");
         }
 
-        sqlBuilder.append(String.join(" OR ", conditions));
+        sqlBuilder.append("(");
+
+        if (searchByTitle && searchByDirector) {
+            sqlBuilder.append(String.join(" OR ", conditions));
+        } else if (searchByTitle || searchByDirector) {
+            sqlBuilder.append(conditions.getFirst());
+        }
+
+        sqlBuilder.append(")");
+        // ------------------------------------------
+
         sqlBuilder.append(" GROUP BY f.id ORDER BY likes_count DESC");
 
         log.debug("Executing search films query: {}", sqlBuilder.toString());

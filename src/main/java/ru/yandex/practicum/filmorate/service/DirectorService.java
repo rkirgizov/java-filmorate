@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.DirectorDto;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.DirectorMapper;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.storage.DirectorStorage;
@@ -21,6 +22,10 @@ public class DirectorService {
     }
 
     public Director createDirector(Director director) {
+        if (director.getName() == null || director.getName().isBlank()) {
+            throw new ValidationException("Имя режиссёра не может быть пустым");
+        }
+
         return directorStorage.createDirector(director);
     }
 

@@ -122,12 +122,16 @@ public final class FilmValidator {
                 filmRequest.setDirectors(validateDirectors(filmRequest.getDirectors(), directorStorage));
             }
         } else {
-            List<Director> directors = film.getDirectors().stream()
-                    .map(directorStorage::findDirectorById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(Collectors.toList());
-            filmRequest.setDirectors(directors);
+            // Здесь, получается, другая логика, отличная от жанров.
+            // Если в реквесте на апдейт в поле режиссёра приходит null, то это значит удаление всех режиссёров из фильма
+            // Поэтому ставим пустой список режиссёров
+            filmRequest.setDirectors(new ArrayList<>());
+//            List<Director> directors = film.getDirectors().stream()
+//                    .map(directorStorage::findDirectorById)
+//                    .filter(Optional::isPresent)
+//                    .map(Optional::get)
+//                    .collect(Collectors.toList());
+//            filmRequest.setDirectors(directors);
         }
 
         return filmRequest;

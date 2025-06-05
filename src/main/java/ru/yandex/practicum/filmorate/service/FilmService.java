@@ -60,13 +60,14 @@ public class FilmService {
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
-        if (validatedFilmRequest.getDirectors() != null && !validatedFilmRequest.getDirectors().isEmpty()) {
-            Film finalFilm = film;
-            validatedFilmRequest.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(finalFilm.getId(), director.getId()));
-        } else if (validatedFilmRequest.getDirectors() != null && validatedFilmRequest.getDirectors().isEmpty()) {
-            filmStorage.deleteDirectorsFromFilm(film.getId());
-        }
-
+        // Здесь зачем добавлено?
+        // В результате если при добавлении фильма указан режиссёр, то он дублируется в фильме
+//        if (validatedFilmRequest.getDirectors() != null && !validatedFilmRequest.getDirectors().isEmpty()) {
+//            Film finalFilm = film;
+//            validatedFilmRequest.getDirectors().forEach(director -> filmStorage.addDirectorToFilm(finalFilm.getId(), director.getId()));
+//        } else if (validatedFilmRequest.getDirectors() != null && validatedFilmRequest.getDirectors().isEmpty()) {
+//            filmStorage.deleteDirectorsFromFilm(film.getId());
+//        }
 
         return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
     }
