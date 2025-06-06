@@ -25,6 +25,8 @@ import ru.yandex.practicum.filmorate.storage.impl.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -116,7 +118,7 @@ public class FilmControllerTest {
         Film expectedFilm = FilmMapper.mapToFilm(expectedRequest);
         expectedFilm.setId(createdFilmDto.getId());
 
-        FilmDto expectedFilmDto = FilmMapper.mapToFilmDto(expectedFilm, mpaStorage, genreStorage, directorStorage);
+        FilmDto expectedFilmDto = FilmMapper.mapToFilmDto(expectedFilm, getMpaByFilm(expectedFilm), getGenresByFilm(expectedFilm), getDirectorsByFilm(expectedFilm));
 
 
         assertEquals(expectedFilmDto, createdFilmDto);
@@ -183,4 +185,25 @@ public class FilmControllerTest {
         assertThrows(NotFoundException.class, () -> filmController.updateFilm(filmRequestUpdate),
                 "Ожидается исключение NotFoundException при попытке обновления несуществующего фильма");
     }
+
+    private Mpa getMpaByFilm(Film film) {
+        Optional<Mpa> mpa = mpaStorage.findMpaById(film.getMpa().getId());
+        return mpa.orElse(null);
+    }
+
+    private List<Genre> getGenresByFilm(Film film) {
+        return film.getGenres().stream()
+                .map(genreId -> genreStorage.findGenreById(genreId).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private List<Director> getDirectorsByFilm(Film film) {
+        return film.getDirectors().stream()
+                .map(id -> directorStorage.findDirectorById(id).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+
 }

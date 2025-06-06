@@ -11,7 +11,7 @@ import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
-import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.*;
 import ru.yandex.practicum.filmorate.storage.*;
 import ru.yandex.practicum.filmorate.validation.FilmValidator;
 
@@ -40,17 +40,52 @@ public class FilmService {
         checkMpaCount(5);
     }
 
+    private void checkUserById(int userId) {
+        userStorage.findUserById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+    }
+
+    private Film getFilmById(int filmId) {
+        return filmStorage.findFilmById(filmId)
+                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id = %d не найден", filmId)));
+    }
+
+    private void checkDirectorById(int directorId) {
+        directorStorage.findDirectorById(directorId)
+                .orElseThrow(() -> new NotFoundException(String.format("Режиссер с id = %d не найден", directorId)));
+    }
+
+    private Mpa getMpaByFilm(Film film) {
+        Optional<Mpa> mpa = mpaStorage.findMpaById(film.getMpa().getId());
+        return mpa.orElse(null);
+    }
+
+    private List<Genre> getGenresByFilm(Film film) {
+        return film.getGenres().stream()
+                .map(genreId -> genreStorage.findGenreById(genreId).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private List<Director> getDirectorsByFilm(Film film) {
+        return film.getDirectors().stream()
+                .map(id -> directorStorage.findDirectorById(id).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
     public FilmDto findFilmById(int filmId) {
         log.info("Поиск фильма по id: {}", filmId);
-        return filmStorage.findFilmById(filmId)
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
-                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id = %d не найден", filmId)));
+        Film film = getFilmById(filmId);
+
+        return FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film));
     }
 
     public List<FilmDto> findAll() {
         log.info("Получение всех фильмов");
+
         return filmStorage.findAllFilms().stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .toList();
     }
 
@@ -60,13 +95,12 @@ public class FilmService {
         Film film = FilmMapper.mapToFilm(validatedFilmRequest);
         film = filmStorage.createFilm(film);
 
-        return FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage);
+        return FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film));
     }
 
     public FilmDto updateFilm(int filmId, FilmRequest filmRequest) {
         log.info("Обновление фильма с id {}: {}", filmId, filmRequest);
-        Film existingFilm = filmStorage.findFilmById(filmId)
-                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
+        Film existingFilm = getFilmById(filmId);
 
         FilmRequest validatedFilmRequestForUpdate = FilmValidator.validateFilmRequestForUpdate(existingFilm, filmRequest, mpaStorage, genreStorage, directorStorage);
         Film filmToPersist = FilmMapper.mapToFilm(validatedFilmRequestForUpdate);
@@ -81,14 +115,12 @@ public class FilmService {
             }
         }
 
-        return FilmMapper.mapToFilmDto(filmUpdated, mpaStorage, genreStorage, directorStorage);
+        return FilmMapper.mapToFilmDto(filmUpdated, getMpaByFilm(filmUpdated), getGenresByFilm(filmUpdated), getDirectorsByFilm(filmUpdated));
     }
 
     public void addLikeToFilm(Integer filmId, Integer userId) {
-        filmStorage.findFilmById(filmId)
-                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
-        userStorage.findUserById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+        getFilmById(filmId);
+        checkUserById(userId);
         log.info("Пользователь {} ставит лайк фильму {}", userId, filmId);
         filmStorage.addLikeToFilm(filmId, userId);
         userStorage.addEvent(userId, EventType.LIKE, EventOperation.ADD, filmId);
@@ -97,10 +129,8 @@ public class FilmService {
 
     public void removeLikeFromFilm(Integer filmId, Integer userId) {
         log.info("Пользователь {} удаляет лайк с фильма {}", userId, filmId);
-        filmStorage.findFilmById(filmId)
-                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
-        userStorage.findUserById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+        getFilmById(filmId);
+        checkUserById(userId);
         filmStorage.removeLikeFromFilm(filmId, userId);
         userStorage.addEvent(userId, EventType.LIKE, EventOperation.REMOVE, filmId);
 
@@ -115,7 +145,7 @@ public class FilmService {
         List<Film> popularFilms = filmStorage.getPopularFilms(count, genreId, year);
 
         List<FilmDto> popularFilmDtos = popularFilms.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .collect(Collectors.toList());
 
         log.info("Возвращено {} популярных фильмов с фильтрацией", popularFilmDtos.size());
@@ -126,15 +156,13 @@ public class FilmService {
     public List<FilmDto> findCommonFilms(int userId, int friendId) {
         log.info("Поиск общих фильмов для пользователей {} и {}", userId, friendId);
 
-        userStorage.findUserById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
-        userStorage.findUserById(friendId)
-                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", friendId)));
+        checkUserById(userId);
+        checkUserById(friendId);
 
         List<Film> commonFilms = filmStorage.findCommonFilms(userId, friendId);
 
         List<FilmDto> commonFilmDtos = commonFilms.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .collect(Collectors.toList());
 
         log.info("Найдено {} общих фильмов для пользователей {} и {}", commonFilmDtos.size(), userId, friendId);
@@ -159,9 +187,7 @@ public class FilmService {
 
     public List<FilmDto> getFilmsByDirectorSorted(int directorId, String sortBy) {
         log.info("Получение фильмов режиссера {} с сортировкой {}", directorId, sortBy);
-        directorStorage.findDirectorById(directorId)
-                .orElseThrow(() -> new NotFoundException(String.format("Режиссер с id = %d не найден", directorId)));
-
+        checkDirectorById(directorId);
 
         List<Film> films = filmStorage.getFilmsByDirector(directorId);
 
@@ -188,7 +214,7 @@ public class FilmService {
 
 
         return films.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .toList();
     }
 
@@ -205,14 +231,13 @@ public class FilmService {
         List<Film> films = filmStorage.searchFilms(query.toLowerCase(), searchByTitle, searchByDirector);
 
         return films.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .collect(Collectors.toList());
     }
 
     public void removeFilm(int filmId) {
         log.info("Удаление фильма с id: {}", filmId);
-        filmStorage.findFilmById(filmId)
-                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id: %s не найден", filmId)));
+        getFilmById(filmId);
         filmStorage.deleteFilm(filmId);
     }
 
@@ -235,7 +260,7 @@ public class FilmService {
         List<Film> films = filmStorage.findFilmsByIds(filmIds);
 
         return films.stream()
-                .map(film -> FilmMapper.mapToFilmDto(film, mpaStorage, genreStorage, directorStorage))
+                .map(film -> FilmMapper.mapToFilmDto(film, getMpaByFilm(film), getGenresByFilm(film), getDirectorsByFilm(film)))
                 .collect(Collectors.toList());
     }
 }
