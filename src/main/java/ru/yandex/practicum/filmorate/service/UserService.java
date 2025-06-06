@@ -10,6 +10,7 @@ import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NonCriticalException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.UserEventMapper;
 import ru.yandex.practicum.filmorate.mapper.UserMapper;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
@@ -128,7 +129,9 @@ public class UserService {
     public List<UserEventDto> findEventsByUserId(int userId) {
         userStorage.findUserById(userId)
                 .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+
         return userStorage.findEventsByUserId(userId).stream()
+                .map(UserEventMapper::mapToUserEventDto)
                 .toList();
     }
 

@@ -4,13 +4,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.dto.UserEventDto;
 import ru.yandex.practicum.filmorate.dto.UserFriendDto;
 import ru.yandex.practicum.filmorate.enumeration.EventOperation;
 import ru.yandex.practicum.filmorate.enumeration.EventType;
-import ru.yandex.practicum.filmorate.mapper.UserEventDtoRowMapper;
-import ru.yandex.practicum.filmorate.mapper.UserFriendDtoRowMapper;
+import ru.yandex.practicum.filmorate.rowMapper.UserEventRowMapper;
+import ru.yandex.practicum.filmorate.rowMapper.UserFriendDtoRowMapper;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.model.UserEvent;
 import ru.yandex.practicum.filmorate.storage.BaseStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
@@ -118,9 +118,9 @@ public class UserStorageDbImpl extends BaseStorage<User> implements UserStorage 
     }
 
     @Override
-    public List<UserEventDto> findEventsByUserId(int userId) {
+    public List<UserEvent> findEventsByUserId(int userId) {
         log.debug("Вывод событий пользователя с id = {}", userId);
-        return jdbc.query(FIND_EVENTS_BY_USERID_QUERY, new UserEventDtoRowMapper(), userId);
+        return jdbc.query(FIND_EVENTS_BY_USERID_QUERY, new UserEventRowMapper(), userId);
     }
 
     @Override
