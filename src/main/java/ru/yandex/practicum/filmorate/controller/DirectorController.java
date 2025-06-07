@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.dto.DirectorDto;
-import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.service.DirectorService;
 
 import java.util.List;
@@ -18,27 +17,32 @@ public class DirectorController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Director createDirector(@RequestBody Director director) {
-        return directorService.createDirector(director);
+    public DirectorDto createDirector(@RequestBody DirectorDto directorDto) {
+        log.info("Получен запрос POST /directors для создания режиссера: {}", directorDto);
+        return directorService.createDirector(directorDto);
     }
 
     @PutMapping
-    public Director updateDirector(@RequestBody Director director) {
-        return directorService.updateDirector(director);
+    public DirectorDto updateDirector(@RequestBody DirectorDto directorDto) {
+        log.info("Получен запрос PUT /directors для обновления режиссера с id={}", directorDto.getId());
+        return directorService.updateDirector(directorDto);
     }
 
     @DeleteMapping("/{id}")
     public void deleteDirector(@PathVariable int id) {
+        log.info("Получен запрос DELETE /directors/{} для удаления режиссера", id);
         directorService.deleteDirector(id);
     }
 
     @GetMapping("/{id}")
     public DirectorDto findDirectorById(@PathVariable int id) {
+        log.info("Получен запрос GET /directors/{} для поиска режиссера", id);
         return directorService.findDirectorById(id);
     }
 
     @GetMapping
     public List<DirectorDto> findAll() {
+        log.info("Получен запрос GET /directors для получения всех режиссеров");
         return directorService.findAll();
     }
 }
