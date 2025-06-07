@@ -5,6 +5,7 @@ import ru.yandex.practicum.filmorate.dto.DirectorDto;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.DirectorMapper;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 
 import java.util.List;
@@ -29,8 +30,9 @@ public class DirectorService {
 
     public DirectorDto updateDirector(DirectorDto directorDto) {
         log.info("Обновление режиссера с id={}", directorDto.getId());
-        directorStorage.updateDirector(DirectorMapper.mapToDirector(directorDto));
-        return directorDto;
+        Director director = DirectorMapper.mapToDirector(directorDto);
+        directorStorage.updateDirector(director);
+        return findDirectorById(directorDto.getId());
     }
 
     public void deleteDirector(int id) {
@@ -40,7 +42,7 @@ public class DirectorService {
     public DirectorDto findDirectorById(Integer directorId) {
         return directorStorage.findDirectorById(directorId)
                 .map(DirectorMapper::mapToDirectorDto)
-                .orElseThrow(() -> new NotFoundException(String.format("Режессер с id: %s не найден", directorId)));
+                .orElseThrow(() -> new NotFoundException(String.format("Режиссер с id: %s не найден", directorId)));
     }
 
     public List<DirectorDto> findAll() {
