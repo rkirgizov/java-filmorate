@@ -18,31 +18,40 @@ public class DirectorController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public DirectorDto createDirector(@RequestBody DirectorDto directorDto) {
-        log.info("Получен запрос POST /directors для создания режиссера: {}", directorDto);
-        return directorService.createDirector(directorDto);
+        log.info("Получен запрос POST /directors для создания режиссёра: {}", directorDto);
+        DirectorDto createdDirector = directorService.createDirector(directorDto);
+        log.info("Режиссёр успешно создан с id: {}", createdDirector.getId());
+        return createdDirector;
     }
 
     @PutMapping
     public DirectorDto updateDirector(@RequestBody DirectorDto directorDto) {
-        log.info("Получен запрос PUT /directors для обновления режиссера с id={}", directorDto.getId());
-        return directorService.updateDirector(directorDto);
+        log.info("Получен запрос PUT /directors для обновления режиссёра: {}", directorDto);
+        DirectorDto updatedDirector = directorService.updateDirector(directorDto);
+        log.info("Режиссёр с id={} успешно обновлён", directorDto.getId());
+        return updatedDirector;
     }
 
     @DeleteMapping("/{id}")
     public void deleteDirector(@PathVariable int id) {
-        log.info("Получен запрос DELETE /directors/{} для удаления режиссера", id);
+        log.info("Получен запрос DELETE /directors/{} для удаления режиссёра", id);
         directorService.deleteDirector(id);
+        log.info("Режиссёр с id={} успешно удалён", id);
     }
 
     @GetMapping("/{id}")
     public DirectorDto findDirectorById(@PathVariable int id) {
-        log.info("Получен запрос GET /directors/{} для поиска режиссера", id);
-        return directorService.findDirectorById(id);
+        log.info("Получен запрос GET /directors/{} для поиска режиссёра", id);
+        DirectorDto director = directorService.findDirectorById(id);
+        log.info("Режиссёр с id={} успешно найден", id);
+        return director;
     }
 
     @GetMapping
     public List<DirectorDto> findAll() {
-        log.info("Получен запрос GET /directors для получения всех режиссеров");
-        return directorService.findAll();
+        log.info("Получен запрос GET /directors для получения всех режиссёров");
+        List<DirectorDto> directors = directorService.findAll();
+        log.info("Возвращено {} режиссёров", directors.size());
+        return directors;
     }
 }
