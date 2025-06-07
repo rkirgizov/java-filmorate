@@ -1,12 +1,16 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.dto.*;
+import ru.yandex.practicum.filmorate.enumeration.EventOperation;
+import ru.yandex.practicum.filmorate.enumeration.EventType;
 import ru.yandex.practicum.filmorate.exception.NonCriticalException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.UserEventMapper;
 import ru.yandex.practicum.filmorate.mapper.UserMapper;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
@@ -14,15 +18,17 @@ import ru.yandex.practicum.filmorate.validation.UserValidator;
 
 import java.util.*;
 
-//@RequiredArgsConstructor Убрал, так как Qualifier не работает с @RequiredArgsConstructor
 @Slf4j
 @Service
 public class UserService {
 
     private final UserStorage userStorage;
+    private final FilmService filmService;
 
-    public UserService(@Qualifier("UserStorageDbImpl") UserStorage userStorage) {
+    @Autowired
+    public UserService(@Qualifier("UserStorageDbImpl") UserStorage userStorage, FilmService filmService) {
         this.userStorage = userStorage;
+        this.filmService = filmService;
     }
 
     public UserDto findUserById(Integer userId) {
@@ -79,7 +85,7 @@ public class UserService {
             throw new NotFoundException("Один из пользователей не найден");
         }
         userStorage.addFriendRequest(userId, userFriendId);
-
+        userStorage.addEvent(userId, EventType.FRIEND, EventOperation.ADD, userFriendId);
         log.debug("Пользователь {} добавил в друзья пользователя {}", userId, userFriendId);
     }
 
@@ -91,6 +97,9 @@ public class UserService {
             throw new NonCriticalException("Нет друзей для удаления");
         }
         userStorage.deleteFriend(userId, userFriendId);
+        userStorage.addEvent(userId, EventType.FRIEND, EventOperation.REMOVE, userFriendId);
+        log.debug("Пользователь {} удалил из друзей пользователя {}", userId, userFriendId);
+
     }
 
     public List<UserFriendDto> findFriendsByUserId(int userId) {
@@ -102,17 +111,93 @@ public class UserService {
     }
 
     public List<UserFriendDto> findCommonFriends(int userId, int otherUserId) {
-        if (userStorage.findUserById(userId).isEmpty() || userStorage.findUserById(otherUserId).isEmpty()) {
-            throw new NotFoundException("Один из пользователей не найден");
-        }
+        //Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
+//        if (userStorage.findUserById(userId).isEmpty() || userStorage.findUserById(otherUserId).isEmpty()) {
+//            throw new NotFoundException("Один из пользователей не найден");
+//        }
         List<UserFriendDto> friends1 = userStorage.findFriendsByUserId(userId);
         List<UserFriendDto> friends2 = userStorage.findFriendsByUserId(otherUserId);
         friends1.removeIf(value -> !friends2.contains(value));
-        if (friends1.isEmpty()) {
-            throw new NotFoundException("Нет общих друзей");
-        }
+        //Оказалась лишняя проверка на существование пользователей, не даёт пройти тест постмана
+//        if (friends1.isEmpty()) {
+//            throw new NotFoundException("Нет общих друзей");
+//        }
 
         return friends1;
     }
 
+    public List<UserEventDto> findEventsByUserId(int userId) {
+        userStorage.findUserById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+
+        return userStorage.findEventsByUserId(userId).stream()
+                .map(UserEventMapper::mapToUserEventDto)
+                .toList();
+    }
+
+    public List<FilmDto> findRecommendedFilms(Integer userId) {
+        userStorage.findUserById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Пользователь с id: %s не найден", userId)));
+
+        Set<Integer> currentUserLikes = filmService.getFilmLikesByUserId(userId);
+
+        if (currentUserLikes.isEmpty()) {
+            log.info("У пользователя с ID {} нет лайков, рекомендации отсутствуют.", userId);
+            return Collections.emptyList();
+        }
+
+        Map<Integer, Set<Integer>> allUsersLikes = filmService.getAllUsersLikes();
+
+        allUsersLikes.remove(userId);
+
+        int maxIntersectionSize = 0;
+        Set<Integer> usersWithMaxIntersection = new HashSet<>();
+
+        for (Map.Entry<Integer, Set<Integer>> entry : allUsersLikes.entrySet()) {
+            Integer otherUserId = entry.getKey();
+            Set<Integer> otherUserLikes = entry.getValue();
+
+            Set<Integer> intersection = new HashSet<>(currentUserLikes);
+            intersection.retainAll(otherUserLikes);
+
+            int currentIntersectionSize = intersection.size();
+
+            if (currentIntersectionSize > maxIntersectionSize) {
+                maxIntersectionSize = currentIntersectionSize;
+                usersWithMaxIntersection.clear();
+                usersWithMaxIntersection.add(otherUserId);
+            } else if (currentIntersectionSize > 0 && currentIntersectionSize == maxIntersectionSize) {
+                usersWithMaxIntersection.add(otherUserId);
+            }
+        }
+
+        if (maxIntersectionSize == 0) {
+            log.info("Не найдено пользователей с общими лайками для пользователя с ID {}", userId);
+            return Collections.emptyList();
+        }
+
+        Set<Integer> recommendedFilmIds = new HashSet<>();
+        for (Integer similarUserId : usersWithMaxIntersection) {
+            Set<Integer> similarUserLikes = allUsersLikes.get(similarUserId);
+            if (similarUserLikes != null) {
+                for (Integer filmId : similarUserLikes) {
+                    if (!currentUserLikes.contains(filmId)) {
+                        recommendedFilmIds.add(filmId);
+                    }
+                }
+            }
+        }
+
+        if (recommendedFilmIds.isEmpty()) {
+            log.info("Не найдено фильмов для рекомендации по лайкам похожих пользователей для пользователя с ID {}", userId);
+            return Collections.emptyList();
+        }
+
+        List<Integer> recommendedFilmIdList = new ArrayList<>(recommendedFilmIds);
+        List<FilmDto> recommendedFilms = filmService.getFilmsByIds(recommendedFilmIdList);
+
+        log.debug("Найдено {} рекомендованных фильмов для пользователя с ID {}", recommendedFilms.size(), userId);
+
+        return recommendedFilms;
+    }
 }

@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
-import ru.yandex.practicum.filmorate.mapper.MpaRowMapper;
+import ru.yandex.practicum.filmorate.rowMapper.MpaRowMapper;
 import ru.yandex.practicum.filmorate.service.MpaService;
 import ru.yandex.practicum.filmorate.storage.MpaStorage;
 import ru.yandex.practicum.filmorate.storage.impl.MpaStorageDbImpl;

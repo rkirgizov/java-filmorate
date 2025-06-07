@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.model.Genre;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -17,4 +18,7 @@ public interface GenreStorage {
 
     boolean checkGenreCount(Integer count);
 
+    Map<Integer, List<Genre>> getGenresMapByFilmIds(List<Integer> filmIds);
+
+    List<Genre> findGenresByIds(List<Integer> genreIds);
 }
