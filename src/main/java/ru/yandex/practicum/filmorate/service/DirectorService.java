@@ -39,6 +39,17 @@ public class DirectorService {
             log.warn("Попытка обновить режиссёра без указания id");
             throw new ValidationException("ID режиссёра должен быть указан");
         }
+        if (directorDto.getName() == null || directorDto.getName().isBlank()) {
+            log.warn("Попытка обновить режиссёра с пустым именем");
+            throw new ValidationException("Имя режиссёра не может быть пустым");
+        }
+
+        // Проверяем существование режиссёра
+        directorStorage.findDirectorById(directorDto.getId())
+                .orElseThrow(() -> {
+                    log.warn("Режиссёр с id={} не найден", directorDto.getId());
+                    return new NotFoundException(String.format("Режиссёр с id: %s не найден", directorDto.getId()));
+                });
 
         Director director = new Director();
         director.setId(directorDto.getId());
@@ -48,6 +59,7 @@ public class DirectorService {
         log.info("Режиссёр успешно обновлён: {}", result);
         return result;
     }
+
 
     public void deleteDirector(int id) {
         log.info("Удаление режиссёра с id: {}", id);
