@@ -44,13 +44,6 @@ public class DirectorService {
             throw new ValidationException("Имя режиссёра не может быть пустым");
         }
 
-        // Проверяем существование режиссёра
-        directorStorage.findDirectorById(directorDto.getId())
-                .orElseThrow(() -> {
-                    log.warn("Режиссёр с id={} не найден", directorDto.getId());
-                    return new NotFoundException(String.format("Режиссёр с id: %s не найден", directorDto.getId()));
-                });
-
         Director director = new Director();
         director.setId(directorDto.getId());
         director.setName(directorDto.getName());

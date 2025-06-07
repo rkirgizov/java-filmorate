@@ -5,7 +5,6 @@ import lombok.Data;
 
 @Data
 public class DirectorDto {
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Integer id;
     private String name;
 }
