@@ -17,6 +17,7 @@ public class Film {
     LocalDate releaseDate;
     Mpa mpa;
     List<Integer> genres = new ArrayList<>();
+    List<Integer> directors = new ArrayList<>();
 
 
 }

@@ -6,13 +6,10 @@ import ru.yandex.practicum.filmorate.dto.FilmDto;
 import ru.yandex.practicum.filmorate.dto.FilmRequest;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Mpa;
-import ru.yandex.practicum.filmorate.storage.GenreStorage;
-import ru.yandex.practicum.filmorate.storage.MpaStorage;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class FilmMapper {
@@ -30,33 +27,26 @@ public final class FilmMapper {
                 .toList();
         film.setGenres(genres);
 
+        List<Integer> directors = request.getDirectors().stream()
+                .map(Director::getId)
+                .toList();
+        film.setDirectors(directors);
+
         return film;
     }
 
-    public static FilmDto mapToFilmDto(Film film, MpaStorage mpaStorage, GenreStorage genreStorage) {
+    public static FilmDto mapToFilmDto(Film film, Mpa mpa, List<Genre> genres, List<Director> directors) {
         FilmDto dto = new FilmDto();
         dto.setId(film.getId());
         dto.setName(film.getName());
         dto.setDescription(film.getDescription());
         dto.setDuration(film.getDuration());
         dto.setReleaseDate(film.getReleaseDate());
-
-        Optional<Mpa> mpa = mpaStorage.findMpaById(film.getMpa().getId());
-        if (mpa.isPresent()) {
-            dto.setMpa(mpa.get());
-        } else {
-            dto.setMpa(null);
-        }
-
-        List<Genre> genres = film.getGenres().stream()
-                .map(genreId -> genreStorage.findGenreById(genreId).orElse(null))
-                .filter(Objects::nonNull)
-                .toList();
+        dto.setMpa(mpa);
         dto.setGenres(genres);
+        dto.setDirectors(directors);
 
         return dto;
     }
-
-
 
 }
